@@ -37,8 +37,10 @@ class Quiz(BaseModel):
 
     @model_validator(mode="after")
     def _check_counts(self):
-        if len(self.mc_questions) != 5:
-            raise ValueError("Quiz must have exactly 5 multiple-choice questions.")
-        if len(self.tf_questions) != 5:
-            raise ValueError("Quiz must have exactly 5 true/false questions.")
+        # Allow variable counts selected in the UI (dropdowns). Keep sensible bounds
+        # so accidental empty outputs are rejected.
+        if not (1 <= len(self.mc_questions) <= 10):
+            raise ValueError("Quiz must have between 1 and 10 multiple-choice questions.")
+        if not (1 <= len(self.tf_questions) <= 10):
+            raise ValueError("Quiz must have between 1 and 10 true/false questions.")
         return self
