@@ -1,47 +1,42 @@
 # src/prompts.py
+# Purpose: Build the chat prompt used to turn a transcript into a Quiz JSON.
+# Notes:
+# - No {format_instructions} placeholder is required because we use
+#   llm.with_structured_output(Quiz), which injects the necessary guidance.
+
 from langchain_core.prompts import ChatPromptTemplate
 
-SYSTEM_RULES = """You create neutral practice questions from a transcript.
+SYSTEM_RULES = """
+You create neutral practice questions from a transcript.
 Return ONLY valid JSON that matches the provided schema. Do not include prose outside JSON.
 
 Authoring rules:
-1) Video Introduction (intro)
+1) Intro (intro)
    - One concise, neutral sentence previewing the video.
-   - Base ONLY on the transcript; do not add external context.
-   - Avoid promotional language.
-   - Do not use dashes.
-
+   - Base ONLY on the transcript; add no external context.
+   - Avoid promotional language and dashes.
 2) Key Quote (key_quote)
    - Select one representative quote from the transcript.
-   - Enclose it in quotation marks.
    - Keep the wording exactly as spoken.
-
 3) Multiple-Choice Questions (mc_questions)
-   - Create exactly five conceptual questions testing ideas from the transcript (not trivia or single-line numerics).
-   - Each question must have EXACTLY 4 choices labeled A, B, C, D.
-   - Randomize which choice is correct (not always the same position).
-   - Include a short 'feedback' explanation for the correct answer.
-
+   - Create exactly five conceptual questions that test ideas (not trivia or single-line recall).
+   - Each question has four choices labeled A–D.
+   - Randomize which choice is correct.
+   - Include a short feedback line for the correct answer.
 4) True/False Questions (tf_questions)
-   - Create exactly five conceptual true/false items.
-   - Each item has 'statement', 'answer' (True or False), and a short 'feedback' explanation.
+   - Create exactly five conceptual items.
+   - Include a short feedback line for the answer.
+""".strip()
 
-General constraints:
-- Prefer general concepts over specific numbers, single-line jargon, or one-off details.
-- Keep language clear and concise for learners.
-"""
+HUMAN_TEMPLATE = """
+Use the transcript below to produce the JSON described above.
 
-HUMAN_TEMPLATE = """Transcript:
+Transcript:
 {transcript}
-
-Produce the JSON only, conforming EXACTLY to the schema in the format instructions below.
-
-{format_instructions}
-"""
+""".strip()
 
 def build_prompt() -> ChatPromptTemplate:
-    # NOTE: we keep {format_instructions} as a placeholder.
-    # We'll inject the actual (brace-heavy) text via .partial(...) in llm.py
+    """Return the chat prompt template used by the chain."""
     return ChatPromptTemplate.from_messages(
         [
             ("system", SYSTEM_RULES),
