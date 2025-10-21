@@ -1,0 +1,95 @@
+{# templates/quiz_spartan.html.j2 #}
+<section class="quiz">
+  <p>{{ quiz.intro }}</p>
+  <blockquote>{{ quiz.key_quote }}</blockquote>
+
+  <h3>Multiple Choice</h3>
+  {% for q in quiz.mc_questions %}
+  <fieldset style="margin-bottom:1rem;">
+    <legend>{{ q.question }}</legend>
+
+    {% for c in q.choices %}
+    <input type="button"
+           class="btn btn-light btn-block"
+           value="{{ c.label }}. {{ c.text }}"
+           onclick="
+             const isCorrect = {{ 'true' if c.correct else 'false' }};
+             // color the clicked choice
+             this.style.backgroundColor = isCorrect ? '#008000' : '#dc143c';
+             this.style.color = 'white';
+             this.value = (isCorrect ? 'Correct: ' : 'Incorrect: ') + '{{ c.label }}. {{ c.text|e }}';
+
+             // handle collapsible feedback
+             const details = this.closest('fieldset').querySelector('details.feedback');
+             const body    = details.querySelector('.feedback-body');
+             if (isCorrect) {
+               body.textContent = 'Feedback: {{ q.feedback|e }}';
+               details.open = true;              // expand
+             } else {
+               body.textContent = '';            // clear
+               details.open = false;             // collapse
+             }
+           ">
+    {% endfor %}
+
+    <details class="feedback" style="margin-top:6px;">
+      <summary style="cursor:pointer;">Feedback:</summary>
+      <div class="feedback-body" style="margin-top:6px; font-style:italic;"></div>
+    </details>
+  </fieldset>
+  {% endfor %}
+
+  <h3>True / False</h3>
+  {% for t in quiz.tf_questions %}
+  <fieldset style="margin-bottom:1rem;">
+    <legend>{{ t.statement }}</legend>
+
+    <input type="button"
+           class="btn btn-light btn-block"
+           value="True"
+           onclick="
+             const correct = {{ 'true' if t.answer else 'false' }};
+             const isCorrect = (correct === true);
+             this.style.backgroundColor = isCorrect ? '#008000' : '#dc143c';
+             this.style.color = 'white';
+             this.value = isCorrect ? 'Correct: True' : 'Incorrect: True';
+
+             const details = this.closest('fieldset').querySelector('details.feedback');
+             const body    = details.querySelector('.feedback-body');
+             if (isCorrect) {
+               body.textContent = 'Feedback: {{ t.feedback|e }}';
+               details.open = true;
+             } else {
+               body.textContent = '';
+               details.open = false;
+             }
+           ">
+
+    <input type="button"
+           class="btn btn-light btn-block"
+           value="False"
+           onclick="
+             const correct = {{ 'true' if t.answer else 'false' }};
+             const isCorrect = (correct === false);
+             this.style.backgroundColor = isCorrect ? '#008000' : '#dc143c';
+             this.style.color = 'white';
+             this.value = isCorrect ? 'Correct: False' : 'Incorrect: False';
+
+             const details = this.closest('fieldset').querySelector('details.feedback');
+             const body    = details.querySelector('.feedback-body');
+             if (isCorrect) {
+               body.textContent = 'Feedback: {{ t.feedback|e }}';
+               details.open = true;
+             } else {
+               body.textContent = '';
+               details.open = false;
+             }
+           ">
+
+    <details class="feedback" style="margin-top:6px;">
+      <summary style="cursor:pointer;">Feedback:</summary>
+      <div class="feedback-body" style="margin-top:6px; font-style:italic;"></div>
+    </details>
+  </fieldset>
+  {% endfor %}
+</section>
