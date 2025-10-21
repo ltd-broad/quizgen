@@ -19,8 +19,13 @@ PROMPT = build_prompt()
 def _make_llm(api_key: Optional[str]) -> ChatOpenAI:
     """Create a ChatOpenAI client with explicit key precedence."""
     key = (api_key or os.getenv("OPENAI_API_KEY", "")).strip()
-    # Keep model/temp consistent with earlier experiments
-    return ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=key)
+    return ChatOpenAI(
+        model=os.getenv("QUIZGEN_MODEL", "gpt-4o-mini"),
+        temperature=0,
+        api_key=key,
+        timeout=90,       # fail fast instead of hanging
+        max_retries=0,    # guarantee exactly one network attempt
+    )
 
 def get_quiz(transcript: str, api_key: Optional[str] = None) -> Quiz:
     """

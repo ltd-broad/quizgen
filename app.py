@@ -3,79 +3,129 @@ import os
 from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
+from streamlit.errors import StreamlitSecretNotFoundError
 
 from src.llm import get_quiz
 from src.render import render_quiz_to_html
 
-# ---- Page config (title, wide) ----
-st.set_page_config(page_title="QuizGen", layout="wide")  # docs: st.set_page_config
-# ---- Header ----
-st.title("QuizGen: Transcript → Interactive Quiz")
-st.caption("Upload a transcript, optionally override the API key, and generate copy-pasteable HTML.")
 
-# ---- Sidebar: API key handling ----
-user_key = st.text_input("Optional: Override OpenAI API key", type="password").strip()
+# ---------- Page config ----------
+st.set_page_config(page_title="QuizGen", layout="wide")
+st.title("QuizGen: Transcript ➜ Interactive Quiz")
+st.caption(
+    "Upload a transcript, optionally override the API key, and generate copy-pasteable HTML."
+)
 
-env_key = os.getenv("OPENAI_API_KEY", "").strip()
 
-secrets_key = ""
-try:
-    # Only read secrets if a secrets file exists
-    secrets_key = st.secrets["OPENAI_API_KEY"].strip()
-except Exception:
-    secrets_key = ""
+# ---------- Helpers ----------
+def resolve_api_key(ui_input: str | None) -> str | None:
+    """
+    Return OpenAI key with priority: UI input > Streamlit Secrets > env var.
+    Never error if secrets.toml is missing.
+    """
+    # 1) UI field (masked)
+    if ui_input and ui_input.strip():
+        return ui_input.strip()
 
-api_key = (user_key or env_key or secrets_key)
+    # 2) Streamlit Secrets (handle secrets.toml not present)
+    try:
+        val = st.secrets["OPENAI_API_KEY"]  # raises if secrets.toml is missing
+        if val:
+            return str(val)
+    except Exception:
+        # Covers StreamlitSecretNotFoundError & any secrets parsing problems
+        pass
 
-if not api_key:
-    st.warning("No API key available. Enter one above or set OPENAI_API_KEY in your env or .streamlit/secrets.toml.")
-    st.stop()
+    # 3) Shell environment variable
+    val = os.getenv("OPENAI_API_KEY")
+    if val:
+        return val
 
-# ---- Main: transcript input ----
+    # 4) Nothing available
+    return None
+
+
+def read_uploaded_txt(file) -> str:
+    """Decode a .txt upload to UTF-8 text."""
+    try:
+        return file.read().decode("utf-8")
+    except Exception:
+        # Fall back if already str-like
+        return file.read()
+
+
+# ---------- UI ----------
+api_key_input = st.text_input(
+    "Optional: Override OpenAI API Key",
+    type="password",
+    placeholder="sk-...",
+    help="Leave blank to use Streamlit Secrets or the OPENAI_API_KEY environment variable.",
+)
+
 tab_upload, tab_paste = st.tabs(["Upload .txt", "Paste text"])
-transcript_text = ""
 
 with tab_upload:
-    up = st.file_uploader("Choose a transcript (.txt)", type=["txt"])  # docs: st.file_uploader
-    if up is not None:
-        # Streamlit keeps uploads in memory (BytesIO); decode to text
-        transcript_text = up.read().decode("utf-8", errors="ignore")
+    uploaded = st.file_uploader("Choose a transcript (.txt)", type=["txt"])
 
 with tab_paste:
-    pasted = st.text_area("Paste transcript text here", height=300)
-    if pasted:
-        transcript_text = pasted
+    pasted = st.text_area("Or paste transcript text", height=220)
 
-# Controls for counts (kept simple now; defaults per your current schema: 5 & 5)
-st.sidebar.subheader("Generation options")
-st.sidebar.write("Current prototype uses fixed 5 MCQ and 5 True/False as in your schema.")
-generate_btn = st.button("Generate quiz")
+generate = st.button("Generate quiz", type="primary")
 
-# ---- Action ----
-if generate_btn:
-    if not transcript_text.strip():
-        st.error("Please upload or paste a transcript before generating.")
+
+# ---------- Main action ----------
+if generate:
+    # 1) Read transcript
+    transcript_text = None
+    if uploaded is not None:
+        transcript_text = read_uploaded_txt(uploaded)
+    elif pasted and pasted.strip():
+        transcript_text = pasted.strip()
+
+    if not transcript_text:
+        st.warning("Please upload a .txt file or paste transcript text.")
         st.stop()
 
-    # Run your existing pipeline (one call, no retries)
-    quiz = get_quiz(transcript_text, api_key=api_key)  # we added api_key param earlier
-    html_str = render_quiz_to_html(quiz)
+    # 2) Resolve the API key (optional UI → secrets → env)
+    api_key = resolve_api_key(api_key_input)
+    if not api_key:
+        st.warning(
+            "No API key found. Enter one above, set it in Streamlit Secrets (deploy), "
+            "or define OPENAI_API_KEY in your shell."
+        )
+        st.stop()
 
-    st.success("Quiz generated.")
-    # Preview
-    st.subheader("Preview")
-    components.html(html_str, height=800, scrolling=True)
+    # 3) Call the model once (no hidden retries)
+    with st.spinner("Generating quiz…"):
+        try:
+            quiz = get_quiz(transcript_text, api_key=api_key)   # one call
+        except Exception as e:
+            st.error(
+                "The model call failed. Please check your API key, quota/billing, or try again."
+            )
+            st.exception(e)
+            st.stop()
 
-    # Embed code (copy/paste)
-    st.subheader("Embed code (copy this into D2L → Insert Stuff → Enter Embed Code)")
+    # 4) Render to HTML
+    try:
+        html_str = render_quiz_to_html(quiz)
+    except Exception as e:
+        st.error("Failed to render HTML from the model output.")
+        st.exception(e)
+        st.stop()
+
+    # 5) Present **copy-paste code FIRST**
+    st.subheader("Embed code (copy & paste)")
     st.code(html_str, language="html")
 
-    # Download button
     st.download_button(
-        "Download HTML file",
+        "Download HTML",
         data=html_str.encode("utf-8"),
         file_name="quiz_output.html",
         mime="text/html",
+        use_container_width=True,
     )
 
-    st.info("Paste the code above into D2L: Insert Stuff → Enter Embed Code.")
+    # 6) Live **preview** of the HTML
+    st.subheader("Preview")
+    components.html(html_str, height=800, scrolling=True)
