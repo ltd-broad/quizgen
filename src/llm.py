@@ -1,22 +1,41 @@
 # src/llm.py
+# Purpose: Create the LLM and the chain that returns a structured Quiz object.
+# Contract: get_quiz(transcript: str, api_key: Optional[str]) -> Quiz
+# - Exactly one model call (no retries, no background work).
+# - If api_key is None, we fall back to the OPENAI_API_KEY env var.
+
+from __future__ import annotations
+
+import os
+from typing import Optional
+
 from langchain_openai import ChatOpenAI
-from langchain_core.output_parsers import PydanticOutputParser
-from langchain_core.runnables import RunnableSequence
-
-from .schemas import Quiz
 from .prompts import build_prompt
+from .schemas import Quiz  # Pydantic model defining the expected JSON
 
-# Single-call client (no retries, no max_tokens cap)
-LLM = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+# Build the prompt once
+PROMPT = build_prompt()
 
-PARSER = PydanticOutputParser(pydantic_object=Quiz)
+def _make_llm(api_key: Optional[str]) -> ChatOpenAI:
+    """Create a ChatOpenAI client with explicit key precedence."""
+    key = (api_key or os.getenv("OPENAI_API_KEY", "")).strip()
+    # Keep model/temp consistent with earlier experiments
+    return ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=key)
 
-# Build prompt, then freeze the brace-heavy format instructions via partial()
-PROMPT = build_prompt().partial(format_instructions=PARSER.get_format_instructions())
+def get_quiz(transcript: str, api_key: Optional[str] = None) -> Quiz:
+    """
+    Build the chain: Prompt -> LLM with structured output -> Quiz (Pydantic).
+    Exactly one invoke; raises if the model output can't be parsed into Quiz.
+    """
+    llm = _make_llm(api_key)
 
-# Compose prompt -> model -> parser
-CHAIN: RunnableSequence = PROMPT | LLM | PARSER
+    # Ask LangChain to enforce the Quiz schema.
+    # In current LangChain, this returns a Runnable that already handles
+    # schema instructions internally—no need to inject format_instructions.
+    structured_llm = llm.with_structured_output(Quiz)
 
-def get_quiz(transcript: str) -> Quiz:
-    # Exactly one API call; if parsing fails, it raises
-    return CHAIN.invoke({"transcript": transcript})
+    # Compose: prompt | structured_llm
+    chain = PROMPT | structured_llm
+
+    # Single call; no retries (keeps costs predictable)
+    return chain.invoke({"transcript": transcript})

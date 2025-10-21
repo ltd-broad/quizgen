@@ -2,3 +2,10 @@
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
+
+# Streamlit local secrets (never commit)
+.streamlit/
+.streamlit/secrets.toml
+
+# macOS Finder files
+.DS_Store

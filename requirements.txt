@@ -6,3 +6,4 @@ jinja2
 pydantic
 python-dotenv
 tiktoken
+streamlit>=1.36
