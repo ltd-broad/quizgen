@@ -1,11 +1,17 @@
+# secrets / env
 .env
+.streamlit/
+.streamlit/secrets.toml
+
+# python noise
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
-# Streamlit local secrets (never commit)
-.streamlit/
-.streamlit/secrets.toml
-
-# macOS Finder files
+# local/editor
 .DS_Store
+.vscode/
+
+# generated output
+data/examples/quiz_output.html
+quiz_output.html
