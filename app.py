@@ -87,15 +87,13 @@ with tab_upload:
 with tab_paste:
     pasted = st.text_area("Or paste transcript text", height=220)
 
-# Primary actions
-colA, colB = st.columns([1, 1])
-with colA:
-    generate_draft = st.button("Generate draft", type="primary")
-with colB:
-    regenerate_draft = st.button("Regenerate draft")
+# Single primary action: toggles between Generate/Regenerate
+has_draft = "quiz_draft" in st.session_state
+action_label = "Regenerate draft" if has_draft else "Generate draft"
+trigger_generate = st.button(action_label, type="primary")
 
 # ---------- Step 1: Generate draft (one API call) ----------
-if generate_draft or regenerate_draft:
+if trigger_generate:
     # Clean previous session draft
     reset_draft_state()
 
