@@ -1,7 +1,6 @@
 # app.py
 import os
 import streamlit as st
-import streamlit.components.v1 as components
 
 from src.llm import get_quiz
 from src.render import render_quiz_to_html
@@ -31,6 +30,7 @@ def resolve_api_key(ui_input: str | None) -> str | None:
     if val:
         return val
     return None
+
 
 def read_uploaded_txt(file) -> str:
     try:
@@ -110,18 +110,10 @@ if generate:
         st.exception(e)
         st.stop()
 
-    # 5) Copy-paste code FIRST
+    # 5) Embed code only (no download/preview)
     st.subheader("Embed code (copy & paste)")
     st.code(html_str, language="html")
-
-    st.download_button(
-        "Download HTML",
-        data=html_str.encode("utf-8"),
-        file_name="quiz_output.html",
-        mime="text/html",
-        use_container_width=True,
+    st.info(
+        "Use the copy button in the code box, then paste into D2L: "
+        "Insert Stuff → Enter Embed Code."
     )
-
-    # 6) Preview BELOW
-    st.subheader("Preview")
-    components.html(html_str, height=800, scrolling=True)
