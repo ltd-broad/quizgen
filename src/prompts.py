@@ -18,9 +18,15 @@ Authoring rules:
    - Each question has four choices labeled A–D.
    - Randomize which choice is correct.
    - Include a short feedback line for the correct answer.
+   - Each MCQ stem should be 12–30 words and combine at least two related ideas from the transcript.
+   - Avoid stems that quote a single sentence and ask for a missing noun.
+   - Avoid questions whose only difficulty is recalling exact variable names (e.g., x1/x2) or raw numeric trivia; prefer conceptual understanding instead.
+   - Make distractors plausible but wrong and conceptually distinct.
+   - Do not use options like "All of the above" or "None of the above".
 4) True/False Questions (tf_questions)
    - Create exactly {n_tf} conceptual items.
    - Include a short feedback line for the answer.
+   - Write statements that require reasoning, not recall of a single token or variable name.
 """.strip()
 
 HUMAN_TEMPLATE = """
