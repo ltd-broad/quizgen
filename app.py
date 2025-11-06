@@ -13,6 +13,7 @@ st.caption(
     "1) Generate a draft, 2) select which questions to keep, 3) get copy-pasteable HTML."
 )
 
+
 # ---------- Helpers ----------
 def resolve_api_key(ui_input: str | None) -> str | None:
     """
@@ -68,15 +69,15 @@ col1, col2 = st.columns(2)
 with col1:
     n_mcq = st.selectbox(
         "Number of MCQs",
-        options=list(range(1, 11)),   # 1..10
-        index=1,                      # default 2
+        options=list(range(1, 11)),  # 1..10
+        index=1,  # default 2
         help="How many multiple-choice questions to generate in the draft.",
     )
 with col2:
     n_tf = st.selectbox(
         "Number of True/False",
-        options=list(range(1, 11)),   # 1..10
-        index=1,                      # default 2
+        options=list(range(1, 11)),  # 1..10
+        index=1,  # default 2
         help="How many true/false questions to generate in the draft.",
     )
 
@@ -121,7 +122,9 @@ if trigger_generate:
         try:
             quiz = get_quiz(transcript_text, n_mcq=n_mcq, n_tf=n_tf, api_key=api_key)
         except Exception as e:
-            st.error("The model call failed. Check your key, quota/billing, or try again.")
+            st.error(
+                "The model call failed. Check your key, quota/billing, or try again."
+            )
             st.exception(e)
             st.stop()
 
@@ -160,7 +163,6 @@ if quiz:
                     if getattr(q, "feedback", None):
                         st.write(f"**Feedback:** {q.feedback}")
 
-
     # --- True / False: checkbox + expander on the same row ---
     if getattr(quiz, "tf_questions", []):
         st.subheader("True / False")
@@ -183,7 +185,6 @@ if quiz:
                 with st.expander(f"**T/F {i+1}:** {tf_text}", expanded=False):
                     if getattr(q, "feedback", None):
                         st.write(f"**Feedback:** {q.feedback}")
-
 
     st.divider()
     make_html = st.button("Generate Embed HTML")
@@ -213,7 +214,9 @@ if quiz:
                 tf_questions=tf_keep,
             )
         except Exception as e:
-            st.error("Could not build the filtered quiz object. Check schema constraints.")
+            st.error(
+                "Could not build the filtered quiz object. Check schema constraints."
+            )
             st.exception(e)
             st.stop()
 
@@ -231,4 +234,6 @@ final_html = st.session_state.get("final_html")
 if final_html:
     st.markdown("### Step 3 — Embed code (copy & paste)")
     st.code(final_html, language="html")
-    st.info("Use the copy button in the code box, then paste into D2L: Insert Stuff → Enter Embed Code.")
+    st.info(
+        "Use the copy button in the code box, then paste into D2L: Insert Stuff → Enter Embed Code."
+    )
