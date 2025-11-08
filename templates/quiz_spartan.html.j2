@@ -9,10 +9,16 @@
     <legend>{{ q.question | e }}</legend>
 
     {% for c in q.choices %}
+    {# 
+      IMPORTANT:
+      - Replace " with double-prime (U+2033) ONLY for the attribute value so the label
+        can never break the attribute, then HTML-escape.
+      - We do NOT inject the label into the JS string; handler only uses booleans and this.value.
+    #}
     <input
       type="button"
       class="btn btn-light btn-block"
-      value="{{ c.label }}. {{ c.text | e }}"
+      value="{{ (c.label ~ '. ' ~ c.text)|replace('\"', '″')|e }}"
       onclick="
         var ok = {{ 'true' if c.correct else 'false' }};
         this.style.backgroundColor = ok ? '#008000' : '#dc143c';
@@ -37,7 +43,6 @@
   <fieldset style="margin-bottom:0.75rem;">
     <legend>{{ t.statement | e }}</legend>
 
-    <!-- True button -->
     <input
       type="button"
       class="btn btn-light btn-block"
@@ -50,7 +55,6 @@
       "
     >
 
-    <!-- False button -->
     <input
       type="button"
       class="btn btn-light btn-block"
