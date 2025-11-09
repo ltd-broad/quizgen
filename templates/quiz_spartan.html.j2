@@ -9,21 +9,23 @@
     <legend>{{ q.question | e }}</legend>
 
     {% for c in q.choices %}
-    {# 
-      IMPORTANT:
-      - Replace " with double-prime (U+2033) ONLY for the attribute value so the label
-        can never break the attribute, then HTML-escape.
-      - We do NOT inject the label into the JS string; handler only uses booleans and this.value.
-    #}
     <input
       type="button"
       class="btn btn-light btn-block"
-      value="{{ (c.label ~ '. ' ~ c.text)|replace('\"', '″')|e }}"
+      value="{{ (c.label ~ '. ' ~ c.text) | replace('\"', '″') | e }}"
+      data-label="{{ (c.label ~ '. ' ~ c.text) | replace('\"', '″') | e }}"
       onclick="
+        // prevent repeated prefixing on multiple clicks
+        if (this.dataset.answered === '1') return;
+        this.dataset.answered = '1';
+
         var ok = {{ 'true' if c.correct else 'false' }};
         this.style.backgroundColor = ok ? '#008000' : '#dc143c';
         this.style.color = 'white';
-        this.value = (ok ? 'Correct: ' : 'Incorrect: ') + this.value;
+
+        // always format from the pristine label we stored
+        var base = this.dataset.label || this.value;
+        this.value = (ok ? 'Correct: ' : 'Incorrect: ') + base;
       "
     >
     {% endfor %}
@@ -47,11 +49,17 @@
       type="button"
       class="btn btn-light btn-block"
       value="True"
+      data-label="True"
       onclick="
+        if (this.dataset.answered === '1') return;
+        this.dataset.answered = '1';
+
         var ok = {{ 'true' if t.answer else 'false' }};
         this.style.backgroundColor = ok ? '#008000' : '#dc143c';
         this.style.color = 'white';
-        this.value = ok ? 'Correct: True' : 'Incorrect: True';
+
+        var base = this.dataset.label || this.value;
+        this.value = ok ? 'Correct: ' + base : 'Incorrect: ' + base;
       "
     >
 
@@ -59,11 +67,17 @@
       type="button"
       class="btn btn-light btn-block"
       value="False"
+      data-label="False"
       onclick="
+        if (this.dataset.answered === '1') return;
+        this.dataset.answered = '1';
+
         var ok = {{ 'false' if t.answer else 'true' }};
         this.style.backgroundColor = ok ? '#008000' : '#dc143c';
         this.style.color = 'white';
-        this.value = ok ? 'Correct: False' : 'Incorrect: False';
+
+        var base = this.dataset.label || this.value;
+        this.value = ok ? 'Correct: ' + base : 'Incorrect: ' + base;
       "
     >
 
