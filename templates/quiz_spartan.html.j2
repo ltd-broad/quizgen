@@ -1,6 +1,13 @@
 <section class="quiz" style="font-family: 'Lato', 'Helvetica Neue', Arial, sans-serif;">
   <p>{{ quiz.intro | e }}</p>
-  <blockquote>{{ quiz.key_quote | e }}</blockquote>
+
+  {% if quiz.key_quotes %}
+    <h2 style="margin-top: 1.5rem; margin-bottom: 0.75rem;">Key Quotes</h2>
+    {% for quote in quiz.key_quotes[:5] %}
+      <blockquote>{{ quote | e }}</blockquote>
+    {% endfor %}
+  {% endif %}
+
   <h2 style="margin-top: 1.5rem; margin-bottom: 0.75rem;">Knowledge Check</h2>
 
   {% for q in quiz.mc_questions %}

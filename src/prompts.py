@@ -14,9 +14,10 @@ Authoring rules:
    - Base ONLY on the transcript (no external context).
    - Avoid promotional language and dashes.
 
-2) Key Quote ("key_quote")
-   - Select ONE representative quote from the transcript.
-   - Keep the wording EXACTLY as spoken (verbatim).
+2) Key Quotes ("key_quotes")
+   - Select between 1 and 5 short, representative quotes from the transcript.
+   - Each quote should be meaningful on its own and useful as a call-out.
+   - Keep the wording EXACTLY as spoken (verbatim, no edits).
 
 3) Multiple-Choice ("mc_questions")
    - Create exactly {n_mcq} conceptual questions.
@@ -52,6 +53,7 @@ General formatting:
 
 Self-check BEFORE replying:
 - You have exactly {n_mcq} MCQs and exactly {n_tf} T/F items.
+- "key_quotes" is an array with between 1 and 5 strings (each a verbatim quote).
 - Every MCQ "choices" array has exactly 4 objects, labels are "A","B","C","D".
 - Exactly one choice per MCQ has "correct": true (others false).
 - All strings are valid JSON strings (ASCII quotes) and no extra fields are present.
@@ -68,7 +70,7 @@ Transcript:
 Output JSON object with this exact shape:
 {{
   "intro": string,
-  "key_quote": string,
+  "key_quotes": [string, ...],
   "mc_questions": [
     {{
       "question": string,
@@ -88,6 +90,7 @@ Output JSON object with this exact shape:
 
 Constraints (must all be satisfied):
 - Exactly {n_mcq} MCQs and {n_tf} T/F items.
+- "key_quotes" must be a non-empty array of between 1 and 5 strings.
 - Exactly 4 choices per MCQ, labeled A–D.
 - Exactly ONE choice per MCQ has "correct": true (others false).
 - Question wording should be short and concise.

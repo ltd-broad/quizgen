@@ -30,6 +30,7 @@ class TFQuestion(BaseModel):
 
 class Quiz(BaseModel):
     intro: str
-    key_quote: str
+    # Zero to five short, verbatim quotes to highlight from the transcript
+    key_quotes: List[str] = Field(default_factory=list, max_length=5)
     mc_questions: List[MCQuestion] = Field(default_factory=list)
     tf_questions: List[TFQuestion] = Field(default_factory=list)

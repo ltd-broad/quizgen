@@ -1,6 +1,7 @@
 # app.py
 import os
 from uuid import uuid4
+
 import streamlit as st
 
 from src.llm import get_quiz
@@ -10,7 +11,8 @@ from src.render import render_quiz_to_html
 st.set_page_config(page_title="QuizGen", layout="wide")
 st.title("QuizGen: Transcript ➜ Interactive Quiz")
 st.caption(
-    "1) Generate a draft, 2) select which questions to keep, 3) get copy-pasteable HTML."
+    "1) Generate a draft, 2) select which questions to keep (and optional key quote), "
+    "3) get copy-pasteable HTML."
 )
 
 
@@ -44,7 +46,9 @@ def read_uploaded_txt(file) -> str:
 def reset_draft_state():
     # Clear any previous draft quiz + selection keys
     for k in list(st.session_state.keys()):
-        if k.startswith("selns_"):  # checkbox keys live under this namespace
+        if k.startswith(
+            "selns_"
+        ):  # checkbox / selection keys live under this namespace
             del st.session_state[k]
     st.session_state.pop("quiz_draft", None)
     st.session_state.pop("sel_namespace", None)
@@ -135,10 +139,46 @@ if trigger_generate:
 # ---------- Step 2: Review & select (no API calls) ----------
 quiz = st.session_state.get("quiz_draft")
 if quiz:
-    st.markdown("### Step 2 — Review & select questions")
-    st.caption("Uncheck any items you do not want to include in the final embed code.")
+    st.markdown("### Step 2 — Review & select content")
+    st.caption(
+        "Choose an optional key quote, then uncheck any questions you do not want to "
+        "include in the final embed code."
+    )
 
     ns = st.session_state["sel_namespace"]  # stable per generated draft
+    quote_sel_key = f"selns_{ns}_quote"
+
+    # --- Key quote selection (at most one) ---
+    if getattr(quiz, "key_quotes", []):
+        st.subheader("Key quote")
+        st.caption("Choose at most one quote to include in the final HTML (or 'None').")
+
+        quotes = quiz.key_quotes
+        # We'll store the selected index as an int in session_state:
+        #   0 => None
+        #   1..N => pick quotes[index - 1]
+        options_idx = list(range(len(quotes) + 1))
+
+        def _format_quote_option(i: int) -> str:
+            if i == 0:
+                return "None (do not include a quote)"
+            text = quotes[i - 1]
+            # Shorten long quotes for the radio label
+            if len(text) > 120:
+                return f"“{text[:117]}...”"
+            return f"“{text}”"
+
+        current_idx = st.session_state.get(quote_sel_key, 0)
+        if current_idx >= len(options_idx):
+            current_idx = 0
+
+        selected_idx = st.radio(
+            "Select key quote for embed:",
+            options=options_idx,
+            index=current_idx,
+            format_func=_format_quote_option,
+        )
+        st.session_state[quote_sel_key] = selected_idx
 
     # --- Multiple-Choice: checkbox + expander on the same row ---
     if getattr(quiz, "mc_questions", []):
@@ -206,12 +246,13 @@ if quiz:
 
     # Handle Create Code: generate filtered quiz + HTML
     if create_code_clicked:
-        # Collect selections
+        # Collect MCQ selections
         mc_keep = []
         for i, _ in enumerate(getattr(quiz, "mc_questions", [])):
             if st.session_state.get(f"selns_{ns}_mc_{i}", True):
                 mc_keep.append(quiz.mc_questions[i])
 
+        # Collect T/F selections
         tf_keep = []
         for i, _ in enumerate(getattr(quiz, "tf_questions", [])):
             if st.session_state.get(f"selns_{ns}_tf_{i}", True):
@@ -221,11 +262,21 @@ if quiz:
             st.warning("You deselected all questions. Please include at least one.")
             st.stop()
 
+        # Determine which key quote (if any) was selected
+        quotes_list: list[str] = []
+        if getattr(quiz, "key_quotes", []):
+            quote_sel_key = f"selns_{ns}_quote"
+            sel_idx = st.session_state.get(quote_sel_key, 0)
+            if isinstance(sel_idx, int) and sel_idx > 0:
+                idx = sel_idx - 1
+                if 0 <= idx < len(quiz.key_quotes):
+                    quotes_list = [quiz.key_quotes[idx]]
+
         # Build a filtered quiz object of the same type
         try:
             filtered_quiz = type(quiz)(
                 intro=getattr(quiz, "intro", ""),
-                key_quote=getattr(quiz, "key_quote", ""),
+                key_quotes=quotes_list,
                 mc_questions=mc_keep,
                 tf_questions=tf_keep,
             )
@@ -251,5 +302,6 @@ if final_html:
     st.markdown("### Step 3 — Embed code (copy & paste)")
     st.code(final_html, language="html")
     st.info(
-        "Use the copy button in the code box, then paste into D2L: Insert Stuff → Enter Embed Code."
+        "Use the copy button in the code box, then paste into D2L: "
+        "Insert Stuff → Enter Embed Code."
     )
