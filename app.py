@@ -187,9 +187,25 @@ if quiz:
                         st.write(f"**Feedback:** {q.feedback}")
 
     st.divider()
-    make_html = st.button("Generate Embed HTML")
 
-    if make_html:
+    # --- Centered Create / Clear buttons ---
+    # Layout: [spacer] [Create Code] [Clear Code] [spacer]
+    spacer_left, col_create, col_clear, spacer_right = st.columns([1, 0.6, 0.6, 1])
+
+    with col_create:
+        create_code_clicked = st.button(
+            "Create Code", use_container_width=True, type="primary"
+        )
+
+    with col_clear:
+        clear_code_clicked = st.button("Clear Code", use_container_width=True)
+
+    # Handle Clear Code first (just wipes the generated HTML)
+    if clear_code_clicked:
+        st.session_state.pop("final_html", None)
+
+    # Handle Create Code: generate filtered quiz + HTML
+    if create_code_clicked:
         # Collect selections
         mc_keep = []
         for i, _ in enumerate(getattr(quiz, "mc_questions", [])):
