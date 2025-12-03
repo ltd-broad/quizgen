@@ -1,11 +1,10 @@
-{# templates/quiz_spartan.html.j2 #}
-<section class="quiz">
+<section class="quiz" style="font-family: 'Lato', 'Helvetica Neue', Arial, sans-serif;">
   <p>{{ quiz.intro | e }}</p>
   <blockquote>{{ quiz.key_quote | e }}</blockquote>
+  <h2 style="margin-top: 1.5rem; margin-bottom: 0.75rem;">Knowledge Check</h2>
 
-  <h3>Multiple Choice</h3>
   {% for q in quiz.mc_questions %}
-  <fieldset style="margin-bottom:0.75rem;">
+  <fieldset style="margin-bottom:1.25rem;">
     <legend>{{ q.question | e }}</legend>
 
     {% for c in q.choices %}
@@ -32,17 +31,16 @@
 
     <!-- Feedback: always present; user can expand/collapse at any time -->
     <details class="feedback" style="margin-top:6px;">
-      <summary style="cursor:pointer;">Feedback:</summary>
-      <div class="feedback-body" style="margin-top:6px; font-style:italic;">
+      <summary style="cursor:pointer; font-size:1.05em; font-weight:600; margin:0;">Feedback</summary>
+      <div class="feedback-body" style="margin-top:6px;">
         {{ q.feedback | e }}
       </div>
     </details>
   </fieldset>
   {% endfor %}
 
-  <h3>True / False</h3>
   {% for t in quiz.tf_questions %}
-  <fieldset style="margin-bottom:0.75rem;">
+  <fieldset style="margin-bottom:1.25rem;">
     <legend>{{ t.statement | e }}</legend>
 
     <input
@@ -83,8 +81,8 @@
 
     <!-- Feedback: always present; user can expand/collapse at any time -->
     <details class="feedback" style="margin-top:6px;">
-      <summary style="cursor:pointer;">Feedback:</summary>
-      <div class="feedback-body" style="margin-top:6px; font-style:italic;">
+      <summary style="cursor:pointer; font-size:1.05em; font-weight:600; margin:0;">Feedback</summary>
+      <div class="feedback-body" style="margin-top:6px;">
         {{ t.feedback | e }}
       </div>
     </details>
