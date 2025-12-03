@@ -10,10 +10,6 @@ from src.render import render_quiz_to_html
 # ---------- Page config ----------
 st.set_page_config(page_title="QuizGen", layout="wide")
 st.title("QuizGen: Transcript ➜ Interactive Quiz")
-st.caption(
-    "1) Generate a draft, 2) select which questions to keep (and optional key quote), "
-    "3) get copy-pasteable HTML."
-)
 
 
 # ---------- Helpers ----------
@@ -85,7 +81,9 @@ with col2:
         help="How many true/false questions to generate in the draft.",
     )
 
-# ---------- Transcript input ----------
+# ---------- Transcript input + Step 1 ----------
+st.markdown("### Step 1 — Provide transcript & generate draft")
+
 tab_upload, tab_paste = st.tabs(["Upload .txt", "Paste text"])
 with tab_upload:
     uploaded = st.file_uploader("Choose a transcript (.txt)", type=["txt"])
@@ -140,7 +138,7 @@ if trigger_generate:
 quiz = st.session_state.get("quiz_draft")
 if quiz:
     st.markdown("### Step 2 — Review & select content")
-    st.caption(
+    st.markdown(
         "Choose an optional key quote, then uncheck any questions you do not want to "
         "include in the final embed code."
     )
@@ -151,7 +149,9 @@ if quiz:
     # --- Key quote selection (at most one) ---
     if getattr(quiz, "key_quotes", []):
         st.subheader("Key quote")
-        st.caption("Choose at most one quote to include in the final HTML (or 'None').")
+        st.markdown(
+            "Choose at most one quote to include in the final HTML (or **None**)."
+        )
 
         quotes = quiz.key_quotes
         # We'll store the selected index as an int in session_state:
@@ -180,15 +180,21 @@ if quiz:
         )
         st.session_state[quote_sel_key] = selected_idx
 
+    # ---------- Sequential question numbering ----------
+    q_counter = 1  # Q1, Q2, ... across ALL question types
+
     # --- Multiple-Choice: checkbox + expander on the same row ---
     if getattr(quiz, "mc_questions", []):
         st.subheader("Multiple-Choice")
         for i, q in enumerate(quiz.mc_questions):
+            qnum = q_counter
+            q_counter += 1
+
             col_cb, col_exp = st.columns([0.06, 0.94])
 
             with col_cb:
                 st.checkbox(
-                    f"Include MCQ {i+1}",
+                    f"Include Q{qnum}",
                     key=f"selns_{ns}_mc_{i}",
                     value=True,
                     help="Uncheck to exclude this question from the final HTML.",
@@ -197,7 +203,7 @@ if quiz:
 
             with col_exp:
                 # Expander header IS the question (chevron inline to its left)
-                with st.expander(f"**Q{i+1}:** {q.question}", expanded=False):
+                with st.expander(f"**Q{qnum}:** {q.question}", expanded=False):
                     for choice in q.choices:
                         st.write(f"- {choice.label}. {choice.text}")
                     if getattr(q, "feedback", None):
@@ -208,12 +214,14 @@ if quiz:
         st.subheader("True / False")
         for i, q in enumerate(quiz.tf_questions):
             tf_text = get_tf_text(q)
+            qnum = q_counter
+            q_counter += 1
 
             col_cb, col_exp = st.columns([0.06, 0.94])
 
             with col_cb:
                 st.checkbox(
-                    f"Include T/F {i+1}",
+                    f"Include Q{qnum}",
                     key=f"selns_{ns}_tf_{i}",
                     value=True,
                     help="Uncheck to exclude this statement from the final HTML.",
@@ -222,7 +230,7 @@ if quiz:
 
             with col_exp:
                 # Expander header IS the statement
-                with st.expander(f"**T/F {i+1}:** {tf_text}", expanded=False):
+                with st.expander(f"**Q{qnum}:** {tf_text}", expanded=False):
                     if getattr(q, "feedback", None):
                         st.write(f"**Feedback:** {q.feedback}")
 

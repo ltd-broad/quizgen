@@ -4,15 +4,24 @@
   {% if quiz.key_quotes %}
     <h2 style="margin-bottom:0.25rem;">Quote</h2>
     {% for quote in quiz.key_quotes[:5] %}
-      <blockquote style="margin:0 0 1.75rem 0; font-style:normal; font-weight:400;">{{ quote | e }}</blockquote>
+      <blockquote style="margin:0 0 1.75rem 0; font-style:normal; font-weight:400;">
+        {{ quote | e }}
+      </blockquote>
     {% endfor %}
   {% endif %}
 
   <h2 style="margin-top:1.5rem; margin-bottom:0.75rem;">Knowledge Check</h2>
+  <p>Knowledge Checks are not recorded. Refresh the page to try again.</p>
 
+  {# shared counter so Q-numbers continue across MC + T/F #}
+  {% set ns = namespace(qnum=1) %}
+
+  {# -------- Multiple-choice -------- #}
   {% for q in quiz.mc_questions %}
   <fieldset style="margin-bottom:1.25rem;">
-    <legend style="margin-bottom:0.25rem; font-weight:400; font-size:1.05rem; font-family:inherit;">{{ q.question | e }}</legend>
+    <legend style="margin-bottom:0.25rem; font-weight:400; font-family:inherit;">
+      Q{{ ns.qnum }}. {{ q.question | e }}
+    </legend>
 
     {% for c in q.choices %}
     <input
@@ -38,17 +47,21 @@
 
     <!-- Feedback: always present; user can expand/collapse at any time -->
     <details class="feedback" style="margin-top:6px;">
-      <summary style="cursor:pointer; font-size:1.0rem; font-weight:400; margin:0;">Feedback</summary>
+      <summary style="cursor:pointer; font-weight:400; margin:0;">Feedback</summary>
       <div class="feedback-body" style="margin-top:6px;">
         {{ q.feedback | e }}
       </div>
     </details>
   </fieldset>
+  {% set ns.qnum = ns.qnum + 1 %}
   {% endfor %}
 
+  {# -------- True / False -------- #}
   {% for t in quiz.tf_questions %}
   <fieldset style="margin-bottom:1.25rem;">
-    <legend style="margin-bottom:0.25rem; font-weight:400; font-size:1.05rem; font-family:inherit;">{{ t.statement | e }}</legend>
+    <legend style="margin-bottom:0.25rem; font-weight:400; font-family:inherit;">
+      Q{{ ns.qnum }}. {{ t.statement | e }}
+    </legend>
 
     <input
       type="button"
@@ -88,11 +101,12 @@
 
     <!-- Feedback: always present; user can expand/collapse at any time -->
     <details class="feedback" style="margin-top:6px;">
-      <summary style="cursor:pointer; font-size:1.0rem; font-weight:400; margin:0;">Feedback</summary>
+      <summary style="cursor:pointer; font-weight:400; margin:0;">Feedback</summary>
       <div class="feedback-body" style="margin-top:6px;">
         {{ t.feedback | e }}
       </div>
     </details>
   </fieldset>
+  {% set ns.qnum = ns.qnum + 1 %}
   {% endfor %}
 </section>
