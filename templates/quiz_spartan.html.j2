@@ -18,7 +18,7 @@
 
   {# -------- Multiple-choice -------- #}
   {% for q in quiz.mc_questions %}
-  <fieldset style="margin-bottom:1.25rem;">
+  <fieldset style="margin-bottom:1.5rem;">
     <legend style="margin-bottom:0.25rem; font-weight:400; font-family:inherit;">
       Q{{ ns.qnum }}. {{ q.question | e }}
     </legend>
@@ -58,7 +58,7 @@
 
   {# -------- True / False -------- #}
   {% for t in quiz.tf_questions %}
-  <fieldset style="margin-bottom:1.25rem;">
+  <fieldset style="margin-bottom:1.5rem;">
     <legend style="margin-bottom:0.25rem; font-weight:400; font-family:inherit;">
       Q{{ ns.qnum }}. {{ t.statement | e }}
     </legend>
@@ -110,3 +110,4 @@
   {% set ns.qnum = ns.qnum + 1 %}
   {% endfor %}
 </section>
+<p>&nbsp;</p>
