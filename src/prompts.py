@@ -2,7 +2,8 @@
 from langchain_core.prompts import ChatPromptTemplate
 
 SYSTEM_PROMPT = """\
-You create neutral, conceptual knowledge-check questions from a transcript.
+You create neutral, conceptual knowledge-check questions from a transcript
+for graduate-level students in a higher-education (university) context.
 Return ONLY a single JSON object that matches the schema given in the user message.
 Do not include any commentary, Markdown, code fences, or explanations outside JSON.
 
@@ -13,15 +14,25 @@ Authoring rules:
    - Base ONLY on the transcript (no external context).
    - Avoid promotional language and dashes.
 
-2) Key Quote ("key_quote")
-   - Select ONE representative quote from the transcript.
-   - Keep the wording EXACTLY as spoken (verbatim).
+2) Key Quotes ("key_quotes")
+   - Select between 1 and 5 short, representative quotes from the transcript.
+   - Each quote should capture a key idea, definition, or “aha” explanation that would be useful to highlight in a graduate‑level course.
+   - Favour conceptually rich sentences over throwaway comments, filler phrases, or repeated wording.
+   - Quotes should normally be a single sentence and roughly 8–35 words long so they read as focused call‑outs, not whole paragraphs.
+   - Prefer sentences that would make sense on a slide by themselves: the reader should learn a non‑trivial fact, relationship, or interpretation from that one line.
+   - De‑prioritize generic or vague statements such as “this has some nice properties” or “that’s really interesting” unless they are followed by a concrete explanation (in which case, quote the explanatory part).
+   - Avoid near‑duplicates: each quote should surface a different aspect or nuance of the topic (e.g., definition, intuition, caveat, rule‑of‑thumb).
+   - Keep the wording EXACTLY as spoken (verbatim, no edits).
 
 3) Multiple-Choice ("mc_questions")
    - Create exactly {n_mcq} conceptual questions.
    - Each MCQ has a stem and exactly 4 choices labeled A–D.
    - Exactly ONE choice has "correct": true; the other three are false.
-   - Provide short, explanatory "feedback" for the correct answer.
+   - Question stems should be short and concise (roughly 1–2 sentences).
+   - Provide explanatory "feedback" for the correct answer:
+       • Feedback should be a longer explanation than the question stem
+         (1–3 sentences of clarification).
+       • Do NOT include the words "Correct" or "Incorrect" in the feedback text.
    - Quality bar for stems:
        • 12–30 words.
        • Combine at least TWO related ideas from the transcript.
@@ -35,8 +46,10 @@ Authoring rules:
 
 4) True/False ("tf_questions")
    - Create exactly {n_tf} conceptual items.
-   - Each has a clear statement, a boolean "answer", and short explanatory "feedback".
+   - Each has a clear statement, a boolean "answer", and explanatory "feedback".
    - Statements should require reasoning, not recall of a single token or raw numbers.
+   - Feedback should be 1–3 sentences that clarify *why* the statement is true or false.
+   - Do NOT include the words "Correct" or "Incorrect" in the feedback text.
 
 General formatting:
 - Use standard ASCII quotes in JSON strings.
@@ -45,6 +58,7 @@ General formatting:
 
 Self-check BEFORE replying:
 - You have exactly {n_mcq} MCQs and exactly {n_tf} T/F items.
+- "key_quotes" is an array with between 1 and 5 strings (each a verbatim quote).
 - Every MCQ "choices" array has exactly 4 objects, labels are "A","B","C","D".
 - Exactly one choice per MCQ has "correct": true (others false).
 - All strings are valid JSON strings (ASCII quotes) and no extra fields are present.
@@ -53,6 +67,7 @@ If any check fails, fix your JSON and only then output it.
 
 USER_PROMPT = """\
 Write {n_mcq} multiple-choice questions and {n_tf} true/false questions from this transcript.
+Assume the learners are graduate-level students in a higher-education (university) program.
 
 Transcript:
 {transcript}
@@ -60,7 +75,7 @@ Transcript:
 Output JSON object with this exact shape:
 {{
   "intro": string,
-  "key_quote": string,
+  "key_quotes": [string, ...],
   "mc_questions": [
     {{
       "question": string,
@@ -80,10 +95,13 @@ Output JSON object with this exact shape:
 
 Constraints (must all be satisfied):
 - Exactly {n_mcq} MCQs and {n_tf} T/F items.
+- "key_quotes" must be a non-empty array of between 1 and 5 strings.
 - Exactly 4 choices per MCQ, labeled A–D.
 - Exactly ONE choice per MCQ has "correct": true (others false).
+- Question wording should be short and concise.
+- Feedback must be a longer explanation (1–3 sentences) and must NOT
+  contain the words "Correct" or "Incorrect".
 - No “All of the above” or “None of the above”.
-- Keep feedback short and explanatory.
 - Return ONLY the JSON object (no extra text, no Markdown).
 """
 

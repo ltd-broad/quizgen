@@ -1,6 +1,6 @@
-# app.py
 import os
 from uuid import uuid4
+
 import streamlit as st
 
 from src.llm import get_quiz
@@ -9,9 +9,6 @@ from src.render import render_quiz_to_html
 # ---------- Page config ----------
 st.set_page_config(page_title="QuizGen", layout="wide")
 st.title("QuizGen: Transcript ➜ Interactive Quiz")
-st.caption(
-    "1) Generate a draft, 2) select which questions to keep, 3) get copy-pasteable HTML."
-)
 
 
 # ---------- Helpers ----------
@@ -44,11 +41,15 @@ def read_uploaded_txt(file) -> str:
 def reset_draft_state():
     # Clear any previous draft quiz + selection keys
     for k in list(st.session_state.keys()):
-        if k.startswith("selns_"):  # checkbox keys live under this namespace
+        if k.startswith(
+            "selns_"
+        ):  # checkbox / selection keys live under this namespace
             del st.session_state[k]
     st.session_state.pop("quiz_draft", None)
     st.session_state.pop("sel_namespace", None)
     st.session_state.pop("final_html", None)
+    st.session_state.pop("raw_transcript", None)
+    st.session_state.pop("include_transcript", None)
 
 
 def get_tf_text(q) -> str:
@@ -81,7 +82,9 @@ with col2:
         help="How many true/false questions to generate in the draft.",
     )
 
-# ---------- Transcript input ----------
+# ---------- Transcript input + Step 1 ----------
+st.markdown("### Step 1 — Provide transcript & generate draft")
+
 tab_upload, tab_paste = st.tabs(["Upload .txt", "Paste text"])
 with tab_upload:
     uploaded = st.file_uploader("Choose a transcript (.txt)", type=["txt"])
@@ -107,6 +110,9 @@ if trigger_generate:
     if not transcript_text:
         st.warning("Please upload a .txt file or paste transcript text.")
         st.stop()
+
+    # Store transcript for possible inclusion in the final HTML
+    st.session_state["raw_transcript"] = transcript_text
 
     # API key
     api_key = resolve_api_key(api_key_input)
@@ -135,20 +141,76 @@ if trigger_generate:
 # ---------- Step 2: Review & select (no API calls) ----------
 quiz = st.session_state.get("quiz_draft")
 if quiz:
-    st.markdown("### Step 2 — Review & select questions")
-    st.caption("Uncheck any items you do not want to include in the final embed code.")
+    st.markdown("### Step 2 — Review & select content")
+    st.markdown(
+        "Decide whether to include a transcript accordion, choose an optional key "
+        "quote, then uncheck any questions you do not want to include in the "
+        "final embed code."
+    )
+
+    # Transcript accordion toggle
+    include_transcript = st.checkbox(
+        "Include transcript accordion with transcript text",
+        value=True,
+        help=(
+            "If checked, the embed HTML will include a collapsible 'Transcript' "
+            "section showing the full transcript in a scrollable box."
+        ),
+    )
+    st.session_state["include_transcript"] = include_transcript
 
     ns = st.session_state["sel_namespace"]  # stable per generated draft
+    quote_sel_key = f"selns_{ns}_quote"
+
+    # --- Key quote selection (at most one) ---
+    if getattr(quiz, "key_quotes", []):
+        st.subheader("Key quote")
+        st.markdown(
+            "Choose at most one quote to include in the final HTML (or **None**)."
+        )
+
+        quotes = quiz.key_quotes
+        # We'll store the selected index as an int in session_state:
+        #   0 => None
+        #   1..N => pick quotes[index - 1]
+        options_idx = list(range(len(quotes) + 1))
+
+        def _format_quote_option(i: int) -> str:
+            if i == 0:
+                return "None (do not include a quote)"
+            text = quotes[i - 1]
+            # Shorten long quotes for the radio label
+            if len(text) > 120:
+                return f"“{text[:117]}...”"
+            return f"“{text}”"
+
+        current_idx = st.session_state.get(quote_sel_key, 0)
+        if current_idx >= len(options_idx):
+            current_idx = 0
+
+        selected_idx = st.radio(
+            "Select key quote for embed:",
+            options=options_idx,
+            index=current_idx,
+            format_func=_format_quote_option,
+        )
+        st.session_state[quote_sel_key] = selected_idx
+
+    # ---------- Sequential question numbering ----------
+    q_counter = 1  # Q1, Q2, ... across ALL question types
 
     # --- Multiple-Choice: checkbox + expander on the same row ---
     if getattr(quiz, "mc_questions", []):
         st.subheader("Multiple-Choice")
         for i, q in enumerate(quiz.mc_questions):
+            qnum = q_counter
+            q_counter += 1
+
             col_cb, col_exp = st.columns([0.06, 0.94])
 
             with col_cb:
                 st.checkbox(
-                    f"Include MCQ {i+1}",
+                    f"Include Q{qnum}",
                     key=f"selns_{ns}_mc_{i}",
                     value=True,
                     help="Uncheck to exclude this question from the final HTML.",
@@ -157,7 +219,7 @@ if quiz:
 
             with col_exp:
                 # Expander header IS the question (chevron inline to its left)
-                with st.expander(f"**Q{i+1}:** {q.question}", expanded=False):
+                with st.expander(f"**Q{qnum}:** {q.question}", expanded=False):
                     for choice in q.choices:
                         st.write(f"- {choice.label}. {choice.text}")
                     if getattr(q, "feedback", None):
@@ -168,12 +230,14 @@ if quiz:
         st.subheader("True / False")
         for i, q in enumerate(quiz.tf_questions):
             tf_text = get_tf_text(q)
+            qnum = q_counter
+            q_counter += 1
 
             col_cb, col_exp = st.columns([0.06, 0.94])
 
             with col_cb:
                 st.checkbox(
-                    f"Include T/F {i+1}",
+                    f"Include Q{qnum}",
                     key=f"selns_{ns}_tf_{i}",
                     value=True,
                     help="Uncheck to exclude this statement from the final HTML.",
@@ -182,20 +246,37 @@ if quiz:
 
             with col_exp:
                 # Expander header IS the statement
-                with st.expander(f"**T/F {i+1}:** {tf_text}", expanded=False):
+                with st.expander(f"**Q{qnum}:** {tf_text}", expanded=False):
                     if getattr(q, "feedback", None):
                         st.write(f"**Feedback:** {q.feedback}")
 
     st.divider()
-    make_html = st.button("Generate Embed HTML")
 
-    if make_html:
-        # Collect selections
+    # --- Centered Create / Clear buttons ---
+    # Layout: [spacer] [Create Code] [Clear Code] [spacer]
+    spacer_left, col_create, col_clear, spacer_right = st.columns([1, 0.6, 0.6, 1])
+
+    with col_create:
+        create_code_clicked = st.button(
+            "Create Code", use_container_width=True, type="primary"
+        )
+
+    with col_clear:
+        clear_code_clicked = st.button("Clear Code", use_container_width=True)
+
+    # Handle Clear Code first (just wipes the generated HTML)
+    if clear_code_clicked:
+        st.session_state.pop("final_html", None)
+
+    # Handle Create Code: generate filtered quiz + HTML
+    if create_code_clicked:
+        # Collect MCQ selections
         mc_keep = []
         for i, _ in enumerate(getattr(quiz, "mc_questions", [])):
             if st.session_state.get(f"selns_{ns}_mc_{i}", True):
                 mc_keep.append(quiz.mc_questions[i])
 
+        # Collect T/F selections
         tf_keep = []
         for i, _ in enumerate(getattr(quiz, "tf_questions", [])):
             if st.session_state.get(f"selns_{ns}_tf_{i}", True):
@@ -205,11 +286,28 @@ if quiz:
             st.warning("You deselected all questions. Please include at least one.")
             st.stop()
 
+        # Determine which key quote (if any) was selected
+        quotes_list: list[str] = []
+        if getattr(quiz, "key_quotes", []):
+            quote_sel_key = f"selns_{ns}_quote"
+            sel_idx = st.session_state.get(quote_sel_key, 0)
+            if isinstance(sel_idx, int) and sel_idx > 0:
+                idx = sel_idx - 1
+                if 0 <= idx < len(quiz.key_quotes):
+                    quotes_list = [quiz.key_quotes[idx]]
+
+        # Transcript for HTML based on checkbox
+        include_transcript = st.session_state.get("include_transcript", False)
+        transcript_for_html = (
+            st.session_state.get("raw_transcript", "") if include_transcript else ""
+        )
+
         # Build a filtered quiz object of the same type
         try:
             filtered_quiz = type(quiz)(
                 intro=getattr(quiz, "intro", ""),
-                key_quote=getattr(quiz, "key_quote", ""),
+                transcript=transcript_for_html,
+                key_quotes=quotes_list,
                 mc_questions=mc_keep,
                 tf_questions=tf_keep,
             )
@@ -235,5 +333,6 @@ if final_html:
     st.markdown("### Step 3 — Embed code (copy & paste)")
     st.code(final_html, language="html")
     st.info(
-        "Use the copy button in the code box, then paste into D2L: Insert Stuff → Enter Embed Code."
+        "Use the copy button in the code box, then paste into D2L: "
+        "Insert Stuff → Enter Embed Code."
     )

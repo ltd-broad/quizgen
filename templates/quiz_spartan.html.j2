@@ -1,12 +1,50 @@
-{# templates/quiz_spartan.html.j2 #}
 <section class="quiz">
   <p>{{ quiz.intro | e }}</p>
-  <blockquote>{{ quiz.key_quote | e }}</blockquote>
+  <p>[embed video]</p>
 
-  <h3>Multiple Choice</h3>
+  {# Optional transcript accordion, rendered as a scrollable box #}
+  {% if quiz.transcript %}
+  <details class="transcript" style="margin-top:1rem;">
+    <summary style="cursor:pointer; font-weight:400; margin-bottom:0.5rem;">
+      Transcript
+    </summary>
+    <div
+      style="
+        max-height:12rem;
+        overflow-y:auto;
+        padding:0.75rem;
+        border:1px solid #dddddd;
+        border-radius:4px;
+        background-color:#fafafa;
+        white-space:pre-wrap;
+      "
+    >
+      {{ quiz.transcript | e }}
+    </div>
+  </details>
+  {% endif %}
+
+  {% if quiz.key_quotes %}
+    <h2 style="margin-bottom:0.25rem;">Quote</h2>
+    {% for quote in quiz.key_quotes[:5] %}
+      <blockquote style="margin:0 0 1.75rem 0; font-style:normal; font-weight:400;">
+        {{ quote | e }}
+      </blockquote>
+    {% endfor %}
+  {% endif %}
+
+  <h2 style="margin-top:1.5rem; margin-bottom:0.75rem;">Knowledge Check</h2>
+  <p>Knowledge Checks are not recorded. Refresh the page to try again.</p>
+
+  {# shared counter so Q-numbers continue across MC + T/F #}
+  {% set ns = namespace(qnum=1) %}
+
+  {# -------- Multiple-choice -------- #}
   {% for q in quiz.mc_questions %}
-  <fieldset style="margin-bottom:0.75rem;">
-    <legend>{{ q.question | e }}</legend>
+  <fieldset style="margin-bottom:1.5rem;">
+    <legend style="margin-bottom:0.25rem; font-weight:400; font-family:inherit;">
+      Q{{ ns.qnum }}. {{ q.question | e }}
+    </legend>
 
     {% for c in q.choices %}
     <input
@@ -32,18 +70,21 @@
 
     <!-- Feedback: always present; user can expand/collapse at any time -->
     <details class="feedback" style="margin-top:6px;">
-      <summary style="cursor:pointer;">Feedback:</summary>
-      <div class="feedback-body" style="margin-top:6px; font-style:italic;">
+      <summary style="cursor:pointer; font-weight:400; margin:0;">Feedback</summary>
+      <div class="feedback-body" style="margin-top:6px;">
         {{ q.feedback | e }}
       </div>
     </details>
   </fieldset>
+  {% set ns.qnum = ns.qnum + 1 %}
   {% endfor %}
 
-  <h3>True / False</h3>
+  {# -------- True / False -------- #}
   {% for t in quiz.tf_questions %}
-  <fieldset style="margin-bottom:0.75rem;">
-    <legend>{{ t.statement | e }}</legend>
+  <fieldset style="margin-bottom:1.5rem;">
+    <legend style="margin-bottom:0.25rem; font-weight:400; font-family:inherit;">
+      Q{{ ns.qnum }}. {{ t.statement | e }}
+    </legend>
 
     <input
       type="button"
@@ -83,11 +124,13 @@
 
     <!-- Feedback: always present; user can expand/collapse at any time -->
     <details class="feedback" style="margin-top:6px;">
-      <summary style="cursor:pointer;">Feedback:</summary>
-      <div class="feedback-body" style="margin-top:6px; font-style:italic;">
+      <summary style="cursor:pointer; font-weight:400; margin:0;">Feedback</summary>
+      <div class="feedback-body" style="margin-top:6px;">
         {{ t.feedback | e }}
       </div>
     </details>
   </fieldset>
+  {% set ns.qnum = ns.qnum + 1 %}
   {% endfor %}
 </section>
+<p>&nbsp;</p>
