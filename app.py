@@ -6,6 +6,7 @@ import streamlit as st
 from src.llm import get_quiz
 from src.render import render_quiz_to_html
 
+
 # ---------- Page config ----------
 st.set_page_config(page_title="QuizGen", layout="wide")
 st.title("QuizGen: Transcript ➜ Interactive Quiz")
@@ -19,15 +20,20 @@ def resolve_api_key(ui_input: str | None) -> str | None:
     """
     if ui_input and ui_input.strip():
         return ui_input.strip()
+
+    # Try Streamlit secrets
     try:
         val = st.secrets["OPENAI_API_KEY"]
         if val:
             return str(val)
     except Exception:
         pass
+
+    # Finally, env var
     val = os.getenv("OPENAI_API_KEY")
     if val:
         return val
+
     return None
 
 
@@ -35,21 +41,20 @@ def read_uploaded_txt(file) -> str:
     try:
         return file.read().decode("utf-8")
     except Exception:
+        # If it's already bytes->str compatible or something odd, just return raw
         return file.read()
 
 
 def reset_draft_state():
-    # Clear any previous draft quiz + selection keys
+    """Clear any previous draft quiz, selections, transcript, and final HTML."""
     for k in list(st.session_state.keys()):
-        if k.startswith(
-            "selns_"
-        ):  # checkbox / selection keys live under this namespace
+        if k.startswith("selns_"):
             del st.session_state[k]
+
     st.session_state.pop("quiz_draft", None)
     st.session_state.pop("sel_namespace", None)
     st.session_state.pop("final_html", None)
     st.session_state.pop("raw_transcript", None)
-    st.session_state.pop("include_transcript", None)
 
 
 def get_tf_text(q) -> str:
@@ -101,17 +106,25 @@ if trigger_generate:
     # Clean previous session draft
     reset_draft_state()
 
-    # Transcript
-    transcript_text = None
+    # Decide which transcript source to use
+    transcript_text: str | None = None
+    both_provided = uploaded is not None and pasted and pasted.strip()
+
     if uploaded is not None:
         transcript_text = read_uploaded_txt(uploaded)
+        if both_provided:
+            st.info(
+                "You provided both an uploaded .txt file and pasted text. "
+                "Using the uploaded file. Clear it if you prefer the pasted text instead."
+            )
     elif pasted and pasted.strip():
         transcript_text = pasted.strip()
+
     if not transcript_text:
-        st.warning("Please upload a .txt file or paste transcript text.")
+        st.warning("Please upload a .txt file or paste transcript text (but not both).")
         st.stop()
 
-    # Store transcript for possible inclusion in the final HTML
+    # Save raw transcript for later (for the optional accordion)
     st.session_state["raw_transcript"] = transcript_text
 
     # API key
@@ -143,24 +156,25 @@ quiz = st.session_state.get("quiz_draft")
 if quiz:
     st.markdown("### Step 2 — Review & select content")
     st.markdown(
-        "Decide whether to include a transcript accordion, choose an optional key "
-        "quote, then uncheck any questions you do not want to include in the "
-        "final embed code."
+        "Decide whether to include a transcript accordion, optionally pick a key quote, "
+        "then uncheck any questions you do not want to include in the final embed code."
     )
-
-    # Transcript accordion toggle
-    include_transcript = st.checkbox(
-        "Include transcript accordion with transcript text",
-        value=True,
-        help=(
-            "If checked, the embed HTML will include a collapsible 'Transcript' "
-            "section showing the full transcript in a scrollable box."
-        ),
-    )
-    st.session_state["include_transcript"] = include_transcript
 
     ns = st.session_state["sel_namespace"]  # stable per generated draft
     quote_sel_key = f"selns_{ns}_quote"
+    transcript_flag_key = f"selns_{ns}_include_transcript"
+
+    # --- Transcript accordion toggle ---
+    include_transcript_default = st.session_state.get(transcript_flag_key, True)
+    include_transcript_checkbox = st.checkbox(
+        "Include transcript accordion with transcript text",
+        key=transcript_flag_key,
+        value=include_transcript_default,
+        help=(
+            "Adds a collapsible 'Transcript' section to the generated HTML so "
+            "students can expand it to read the full transcript."
+        ),
+    )
 
     # --- Key quote selection (at most one) ---
     if getattr(quiz, "key_quotes", []):
@@ -170,6 +184,7 @@ if quiz:
         )
 
         quotes = quiz.key_quotes
+
         # We'll store the selected index as an int in session_state:
         #   0 => None
         #   1..N => pick quotes[index - 1]
@@ -180,8 +195,8 @@ if quiz:
                 return "None (do not include a quote)"
             text = quotes[i - 1]
             # Shorten long quotes for the radio label
-            if len(text) > 120:
-                return f"“{text[:117]}...”"
+            if len(text) > 140:
+                return f"“{text[:137]}...”"
             return f"“{text}”"
 
         current_idx = st.session_state.get(quote_sel_key, 0)
@@ -289,24 +304,20 @@ if quiz:
         # Determine which key quote (if any) was selected
         quotes_list: list[str] = []
         if getattr(quiz, "key_quotes", []):
-            quote_sel_key = f"selns_{ns}_quote"
             sel_idx = st.session_state.get(quote_sel_key, 0)
             if isinstance(sel_idx, int) and sel_idx > 0:
                 idx = sel_idx - 1
                 if 0 <= idx < len(quiz.key_quotes):
                     quotes_list = [quiz.key_quotes[idx]]
 
-        # Transcript for HTML based on checkbox
-        include_transcript = st.session_state.get("include_transcript", False)
-        transcript_for_html = (
-            st.session_state.get("raw_transcript", "") if include_transcript else ""
-        )
+        # Determine whether to include transcript accordion
+        include_transcript_flag = bool(st.session_state.get(transcript_flag_key, False))
+        raw_transcript = st.session_state.get("raw_transcript", "")
 
         # Build a filtered quiz object of the same type
         try:
             filtered_quiz = type(quiz)(
                 intro=getattr(quiz, "intro", ""),
-                transcript=transcript_for_html,
                 key_quotes=quotes_list,
                 mc_questions=mc_keep,
                 tf_questions=tf_keep,
@@ -320,7 +331,11 @@ if quiz:
 
         # Render to HTML (no preview/download; just embed code)
         try:
-            html_str = render_quiz_to_html(filtered_quiz)
+            html_str = render_quiz_to_html(
+                filtered_quiz,
+                raw_transcript,
+                include_transcript_flag,
+            )
             st.session_state["final_html"] = html_str
         except Exception as e:
             st.error("Failed to render HTML from the filtered quiz.")
@@ -331,8 +346,8 @@ if quiz:
 final_html = st.session_state.get("final_html")
 if final_html:
     st.markdown("### Step 3 — Embed code (copy & paste)")
-    st.code(final_html, language="html")
     st.info(
-        "Use the copy button in the code box, then paste into D2L: "
-        "Insert Stuff → Enter Embed Code."
+        "Use the copy button on the right side of the embed code box, then paste that "
+        "HTML into D2L using Insert Stuff → Enter Embed Code."
     )
+    st.code(final_html, language="html")

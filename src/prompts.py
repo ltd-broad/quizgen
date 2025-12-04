@@ -19,7 +19,7 @@ Authoring rules:
    - Each quote must be a single, complete sentence that can stand on its own and clearly teaches something non‑trivial about the topic.
    - You may paraphrase or trim for clarity and brevity; rewrite informal or rambling speech into polished written language while keeping the meaning faithful to the transcript.
    - Aim for roughly 12–30 words per quote so they read as focused call‑outs, not long paragraphs.
-   - State ideas directly and explicitly (e.g., “Discriminant analysis predicts whether an outcome will be ‘yes’ or ‘no’.”), and avoid vague meta‑phrases like “this type of analysis” or “whenever we are assessing”.
+   - State ideas directly and explicitly (e.g., “This method helps distinguish between two possible outcomes based on predictor variables.”), and avoid vague meta‑phrases like “this type of analysis” or “whenever we are assessing”.
    - Avoid near‑duplicates: each quote should surface a different aspect or nuance of the topic.
    - De‑prioritize generic statements or bare definitions that simply restate notation or mechanics without interpretation, and prefer quotes that feel “slide‑worthy” by themselves.
 
