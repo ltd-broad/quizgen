@@ -15,14 +15,13 @@ Authoring rules:
    - Avoid promotional language and dashes.
 
 2) Key Quotes ("key_quotes")
-   - Select between 1 and 5 short, representative quotes from the transcript.
-   - Each quote should capture a key idea, definition, or “aha” explanation that would be useful to highlight in a graduate‑level course.
-   - Favour conceptually rich sentences over throwaway comments, filler phrases, or repeated wording.
-   - Quotes should normally be a single sentence and roughly 8–35 words long so they read as focused call‑outs, not whole paragraphs.
-   - Prefer sentences that would make sense on a slide by themselves: the reader should learn a non‑trivial fact, relationship, or interpretation from that one line.
-   - De‑prioritize generic or vague statements such as “this has some nice properties” or “that’s really interesting” unless they are followed by a concrete explanation (in which case, quote the explanatory part).
-   - Avoid near‑duplicates: each quote should surface a different aspect or nuance of the topic (e.g., definition, intuition, caveat, rule‑of‑thumb).
-   - Keep the wording EXACTLY as spoken (verbatim, no edits).
+   - Select exactly 2 short, high‑value quotes that would work well as on‑screen call‑outs or pull‑quotes in a graduate‑level course.
+   - Each quote must be a single, complete sentence that can stand on its own and clearly teaches something non‑trivial about the topic.
+   - You may paraphrase or trim for clarity and brevity; rewrite informal or rambling speech into polished written language while keeping the meaning faithful to the transcript.
+   - Aim for roughly 12–30 words per quote so they read as focused call‑outs, not long paragraphs.
+   - State ideas directly and explicitly (e.g., “This method helps distinguish between two possible outcomes based on predictor variables.”), and avoid vague meta‑phrases like “this type of analysis” or “whenever we are assessing”.
+   - Avoid near‑duplicates: each quote should surface a different aspect or nuance of the topic.
+   - De‑prioritize generic statements or bare definitions that simply restate notation or mechanics without interpretation, and prefer quotes that feel “slide‑worthy” by themselves.
 
 3) Multiple-Choice ("mc_questions")
    - Create exactly {n_mcq} conceptual questions.
@@ -58,7 +57,7 @@ General formatting:
 
 Self-check BEFORE replying:
 - You have exactly {n_mcq} MCQs and exactly {n_tf} T/F items.
-- "key_quotes" is an array with between 1 and 5 strings (each a verbatim quote).
+- "key_quotes" is an array with exactly 2 strings, each a single complete sentence (roughly 12–30 words) that stands alone as a clear, meaningful quote.
 - Every MCQ "choices" array has exactly 4 objects, labels are "A","B","C","D".
 - Exactly one choice per MCQ has "correct": true (others false).
 - All strings are valid JSON strings (ASCII quotes) and no extra fields are present.
@@ -95,7 +94,7 @@ Output JSON object with this exact shape:
 
 Constraints (must all be satisfied):
 - Exactly {n_mcq} MCQs and {n_tf} T/F items.
-- "key_quotes" must be a non-empty array of between 1 and 5 strings.
+- "key_quotes" must be an array of exactly 2 strings.
 - Exactly 4 choices per MCQ, labeled A–D.
 - Exactly ONE choice per MCQ has "correct": true (others false).
 - Question wording should be short and concise.
