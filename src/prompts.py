@@ -16,7 +16,12 @@ Authoring rules:
 
 2) Key Quotes ("key_quotes")
    - Select between 1 and 5 short, representative quotes from the transcript.
-   - Each quote should be meaningful on its own and useful as a call-out.
+   - Each quote should capture a key idea, definition, or “aha” explanation that would be useful to highlight in a graduate‑level course.
+   - Favour conceptually rich sentences over throwaway comments, filler phrases, or repeated wording.
+   - Quotes should normally be a single sentence and roughly 8–35 words long so they read as focused call‑outs, not whole paragraphs.
+   - Prefer sentences that would make sense on a slide by themselves: the reader should learn a non‑trivial fact, relationship, or interpretation from that one line.
+   - De‑prioritize generic or vague statements such as “this has some nice properties” or “that’s really interesting” unless they are followed by a concrete explanation (in which case, quote the explanatory part).
+   - Avoid near‑duplicates: each quote should surface a different aspect or nuance of the topic (e.g., definition, intuition, caveat, rule‑of‑thumb).
    - Keep the wording EXACTLY as spoken (verbatim, no edits).
 
 3) Multiple-Choice ("mc_questions")

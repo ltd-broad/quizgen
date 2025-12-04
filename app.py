@@ -1,4 +1,3 @@
-# app.py
 import os
 from uuid import uuid4
 
@@ -49,6 +48,8 @@ def reset_draft_state():
     st.session_state.pop("quiz_draft", None)
     st.session_state.pop("sel_namespace", None)
     st.session_state.pop("final_html", None)
+    st.session_state.pop("raw_transcript", None)
+    st.session_state.pop("include_transcript", None)
 
 
 def get_tf_text(q) -> str:
@@ -110,6 +111,9 @@ if trigger_generate:
         st.warning("Please upload a .txt file or paste transcript text.")
         st.stop()
 
+    # Store transcript for possible inclusion in the final HTML
+    st.session_state["raw_transcript"] = transcript_text
+
     # API key
     api_key = resolve_api_key(api_key_input)
     if not api_key:
@@ -139,9 +143,21 @@ quiz = st.session_state.get("quiz_draft")
 if quiz:
     st.markdown("### Step 2 — Review & select content")
     st.markdown(
-        "Choose an optional key quote, then uncheck any questions you do not want to "
-        "include in the final embed code."
+        "Decide whether to include a transcript accordion, choose an optional key "
+        "quote, then uncheck any questions you do not want to include in the "
+        "final embed code."
     )
+
+    # Transcript accordion toggle
+    include_transcript = st.checkbox(
+        "Include transcript accordion with transcript text",
+        value=True,
+        help=(
+            "If checked, the embed HTML will include a collapsible 'Transcript' "
+            "section showing the full transcript in a scrollable box."
+        ),
+    )
+    st.session_state["include_transcript"] = include_transcript
 
     ns = st.session_state["sel_namespace"]  # stable per generated draft
     quote_sel_key = f"selns_{ns}_quote"
@@ -280,10 +296,17 @@ if quiz:
                 if 0 <= idx < len(quiz.key_quotes):
                     quotes_list = [quiz.key_quotes[idx]]
 
+        # Transcript for HTML based on checkbox
+        include_transcript = st.session_state.get("include_transcript", False)
+        transcript_for_html = (
+            st.session_state.get("raw_transcript", "") if include_transcript else ""
+        )
+
         # Build a filtered quiz object of the same type
         try:
             filtered_quiz = type(quiz)(
                 intro=getattr(quiz, "intro", ""),
+                transcript=transcript_for_html,
                 key_quotes=quotes_list,
                 mc_questions=mc_keep,
                 tf_questions=tf_keep,

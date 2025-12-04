@@ -1,4 +1,3 @@
-# src/schemas.py
 from __future__ import annotations
 from typing import List, Literal, Optional
 from pydantic import BaseModel, Field, model_validator
@@ -30,6 +29,8 @@ class TFQuestion(BaseModel):
 
 class Quiz(BaseModel):
     intro: str
+    # Optional full transcript text to show in an accordion
+    transcript: Optional[str] = ""
     # Zero to five short, verbatim quotes to highlight from the transcript
     key_quotes: List[str] = Field(default_factory=list, max_length=5)
     mc_questions: List[MCQuestion] = Field(default_factory=list)
