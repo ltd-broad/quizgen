@@ -1,108 +1,90 @@
 # src/utils.py
 from __future__ import annotations
+
+import json
 from typing import Any, Dict, List
-import re
-
-# Normalize curly quotes/dashes to ASCII to reduce quoting issues in HTML/JS
-_ASCII = str.maketrans(
-    {
-        "“": '"',
-        "”": '"',
-        "„": '"',
-        "’": "'",
-        "‘": "'",
-        "—": "-",
-        "–": "-",
-    }
-)
 
 
-def normalize_text(s: str | None) -> str:
-    s = (s or "").strip().translate(_ASCII)
-    s = re.sub(r"\s+", " ", s)
-    return s
+def _ensure_list(value: Any) -> List[Any]:
+    """Helper: turn a value into a list (or empty list)."""
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    return [value]
 
 
-_LABELS = ["A", "B", "C", "D"]
+def repair_quiz_dict(raw: Any) -> Dict[str, Any]:
+    """Best-effort cleanup of the raw model output before Pydantic validation.
 
+    Goals:
+    - Ensure we always have a dict with the keys intro, key_quotes,
+      mc_questions, tf_questions.
+    - Force key_quotes to be a list of EXACTLY 5 strings so that the
+      Quiz schema (which expects 5 quotes) does not fail purely because
+      of quote count.
+    - Keep MC/TF question lists well-formed enough for Pydantic +
+      retry logic to do the final enforcement.
+    """
 
-def _ensure_one_correct(choices: List[Dict[str, Any]]) -> None:
-    # Keep only the first True; make sure there's at least one
-    found = False
-    for c in choices:
-        if c.get("correct") and not found:
-            found = True
-        else:
-            c["correct"] = False
-    if not found and choices:
-        choices[0]["correct"] = True
+    # If the model returned a JSON string inside another layer, try to
+    # parse it once.
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except Exception:
+            # If we can't parse, fall back to an empty structure and let
+            # Pydantic / retries handle the failure.
+            raw = {}
 
+    if not isinstance(raw, dict):
+        # Fallback to an empty dict; this will likely fail validation and
+        # trigger a retry in get_quiz.
+        raw = {}
 
-def _dedupe_choices(choices: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    out: List[Dict[str, Any]] = []
-    seen = set()
-    for c in choices:
-        text = normalize_text(c.get("text", ""))
-        if not text:
-            continue
-        key = text.lower()
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(
-            {"label": None, "text": text, "correct": bool(c.get("correct", False))}
-        )
-    return out
+    data: Dict[str, Any] = dict(raw)
 
+    # -------- Intro --------
+    intro = data.get("intro")
+    if not isinstance(intro, str):
+        intro = ""  # Safe default
+    data["intro"] = intro
 
-def fix_mcq_choices(mcq: Dict[str, Any]) -> Dict[str, Any]:
-    # Normalize question
-    mcq["question"] = normalize_text(mcq.get("question", ""))
+    # -------- Key Quotes: ensure EXACTLY 5 strings --------
+    raw_quotes = _ensure_list(data.get("key_quotes"))
+    cleaned_quotes: List[str] = []
 
-    # Start with whatever the LLM returned
-    choices = _dedupe_choices(list(mcq.get("choices") or []))
+    for q in raw_quotes:
+        if isinstance(q, str):
+            s = q.strip()
+            if s:
+                cleaned_quotes.append(s)
 
-    # Trim or pad to exactly 4
-    choices = choices[:4]
-    while len(choices) < 4:
-        choices.append(
-            {
-                "label": None,
-                "text": f"None of the above ({len(choices)+1})",
-                "correct": False,
-            }
-        )
+    # If we have >= 5, truncate to 5.
+    if len(cleaned_quotes) >= 5:
+        cleaned_quotes = cleaned_quotes[:5]
+    elif len(cleaned_quotes) == 0:
+        # No usable quotes at all: fall back to intro (or a generic placeholder)
+        base = intro.strip() or "Key idea from the transcript."
+        cleaned_quotes = [base] * 5
+    else:
+        # 1–4 quotes: pad by repeating the last one until we reach 5.
+        last = cleaned_quotes[-1]
+        while len(cleaned_quotes) < 5:
+            cleaned_quotes.append(last)
 
-    # Ensure exactly one correct
-    _ensure_one_correct(choices)
+    data["key_quotes"] = cleaned_quotes
 
-    # Assign labels A–D
-    for i, c in enumerate(choices):
-        c["label"] = _LABELS[i]
+    # -------- Multiple-choice questions --------
+    mc_raw = data.get("mc_questions", [])
+    if not isinstance(mc_raw, list):
+        mc_raw = _ensure_list(mc_raw)
+    data["mc_questions"] = mc_raw
 
-    mcq["choices"] = choices
-    # Normalize feedback if present
-    mcq["feedback"] = normalize_text(mcq.get("feedback", ""))
-    return mcq
+    # -------- True/False questions --------
+    tf_raw = data.get("tf_questions", [])
+    if not isinstance(tf_raw, list):
+        tf_raw = _ensure_list(tf_raw)
+    data["tf_questions"] = tf_raw
 
-
-def repair_quiz_dict(data: Dict[str, Any]) -> Dict[str, Any]:
-    data["intro"] = normalize_text(data.get("intro", ""))
-    data["key_quote"] = normalize_text(data.get("key_quote", ""))
-
-    mcqs = []
-    for q in data.get("mc_questions", []) or []:
-        mcqs.append(fix_mcq_choices(dict(q)))
-    data["mc_questions"] = mcqs
-
-    tfs = []
-    for t in data.get("tf_questions", []) or []:
-        tfs.append(
-            {
-                "statement": normalize_text(t.get("statement")),
-                "answer": bool(t.get("answer", False)),
-                "feedback": normalize_text(t.get("feedback")),
-            }
-        )
-    data["tf_questions"] = tfs
     return data
