@@ -11,8 +11,8 @@ from .schemas import Quiz
 from .prompts import SYSTEM_PROMPT, USER_PROMPT
 from .utils import repair_quiz_dict
 
-# You can change this if you want to try another model, e.g. "gpt-4.1-mini".
-MODEL_NAME = "o3-mini"
+# Default model if UI does not override
+DEFAULT_MODEL_NAME = "o3-mini"
 
 
 def _build_messages(transcript: str, n_mcq: int, n_tf: int) -> list[dict]:
@@ -44,7 +44,6 @@ def _build_messages(transcript: str, n_mcq: int, n_tf: int) -> list[dict]:
         elif msg_type in ("system", "user", "assistant"):
             role = msg_type
         else:
-            # Fallback – treat anything unknown as "user"
             role = "user"
 
         content = m.content
@@ -70,6 +69,7 @@ def _one_generation_attempt(
     n_mcq: int,
     n_tf: int,
     api_key: Optional[str],
+    model_name: str,
 ) -> Quiz:
     """Perform ONE full attempt to obtain a valid Quiz.
 
@@ -77,35 +77,27 @@ def _one_generation_attempt(
     we send ``temperature=0.0`` to make the behaviour more deterministic.
 
     For reasoning models like ``"o3-mini"``, the OpenAI API does **not**
-    support a ``temperature`` parameter at all. By using the low-level
-    OpenAI client directly and only adding ``temperature`` for non-o3
-    models, we avoid the "Unsupported parameter: 'temperature'" error.
+    support a ``temperature`` parameter at all.
     """
     client = OpenAI(api_key=api_key) if api_key else OpenAI()
 
     messages = _build_messages(transcript=transcript, n_mcq=n_mcq, n_tf=n_tf)
 
-    # Base request payload
     request_kwargs: dict = {
-        "model": MODEL_NAME,
+        "model": model_name,
         "messages": messages,
-        # Ask the model to return a pure JSON object in its message content
         "response_format": {"type": "json_object"},
     }
 
-    # Only non-o3 models get an explicit temperature parameter.
-    if not MODEL_NAME.startswith("o3-"):
+    if not model_name.startswith("o3-"):
         request_kwargs["temperature"] = 0.0
 
-    # Single model call for this attempt
     resp = client.chat.completions.create(**request_kwargs)
     raw = resp.choices[0].message.content
 
-    # First parse attempt
     try:
         data = json.loads(raw)
     except Exception:
-        # One more nudge for valid JSON if needed
         repair_messages = messages + [
             {
                 "role": "system",
@@ -120,7 +112,7 @@ def _one_generation_attempt(
         data = json.loads(raw)
 
     repaired = repair_quiz_dict(data)
-    return Quiz.model_validate(repaired)  # may raise ValidationError
+    return Quiz.model_validate(repaired)
 
 
 def get_quiz(
@@ -129,17 +121,15 @@ def get_quiz(
     n_tf: int,
     api_key: Optional[str] = None,
     *,
+    model_name: str | None = None,
     max_attempts: int = 5,
 ) -> Quiz:
     """Deterministic, robust generation with bounded retries.
 
-    - For non-o3 models we set ``temperature=0.0`` when calling the API.
-    - For reasoning models like ``o3-mini`` we omit ``temperature`` entirely
-      so the request is accepted by the API.
-    - We retry when the output fails validation (e.g., MCQ not exactly 4
-      choices). On the first valid result we return immediately.
-    - After ``max_attempts`` failures, we raise the last error seen.
+    - For non-o3 models we set ``temperature=0.0``.
+    - For o3 models we omit ``temperature`` entirely.
     """
+    chosen_model = model_name or DEFAULT_MODEL_NAME
     last_err: Exception | None = None
 
     for _ in range(max_attempts):
@@ -149,14 +139,13 @@ def get_quiz(
                 n_mcq=n_mcq,
                 n_tf=n_tf,
                 api_key=api_key,
+                model_name=chosen_model,
             )
         except (ValidationError, BadRequestError, json.JSONDecodeError) as e:
             last_err = e
             continue
 
-    # Exhausted attempts without a valid quiz — raise the last error
     if last_err is not None:
         raise last_err
 
-    # Fallback (should not happen in practice)
     raise RuntimeError(f"Failed to produce a valid quiz after {max_attempts} attempts.")
