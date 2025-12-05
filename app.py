@@ -69,6 +69,37 @@ api_key_input = st.text_input(
     help="Leave blank to use Streamlit Secrets or the OPENAI_API_KEY environment variable.",
 )
 
+# ---------- Model selector ----------
+MODEL_OPTIONS = {
+    "o3-mini": {
+        "label": "o3-mini",
+        "help": (
+            "Reasoning-focused model. Often stronger at structured reasoning and "
+            "following complex constraints. The API does not support temperature "
+            "for o3 models."
+        ),
+    },
+    "gpt-4o-mini": {
+        "label": "gpt-4o-mini",
+        "help": (
+            "General-purpose fast model. Often good for concise drafting and "
+            "may be cheaper depending on your account pricing."
+        ),
+    },
+}
+
+selected_model = st.selectbox(
+    "Model",
+    options=list(MODEL_OPTIONS.keys()),
+    index=0,
+    format_func=lambda k: MODEL_OPTIONS[k]["label"],
+    help=(
+        "Choose which model to use for draft generation.\n\n"
+        "o3-mini: reasoning-oriented.\n"
+        "gpt-4o-mini: fast general-purpose.\n"
+    ),
+)
+
 # ---------- Question counts (dropdowns, no sliders) ----------
 col1, col2 = st.columns(2)
 with col1:
@@ -133,7 +164,13 @@ if trigger_generate:
 
     with st.spinner("Generating draft…"):
         try:
-            quiz = get_quiz(transcript_text, n_mcq=n_mcq, n_tf=n_tf, api_key=api_key)
+            quiz = get_quiz(
+                transcript_text,
+                n_mcq=n_mcq,
+                n_tf=n_tf,
+                api_key=api_key,
+                model_name=selected_model,
+            )
         except Exception as e:
             st.error(
                 "The model call failed. Check your key, quota/billing, or try again."
@@ -149,13 +186,24 @@ quiz = st.session_state.get("quiz_draft")
 if quiz:
     st.markdown("### Step 2 — Review & select content")
     st.markdown(
-        "Decide whether to include a transcript accordion, optionally pick a key quote, "
-        "then uncheck any questions you do not want to include in the final embed code."
+        "Decide whether to include an introduction and transcript accordion, "
+        "optionally pick a key quote, then uncheck any questions you do not want "
+        "to include in the final embed code."
     )
 
     ns = st.session_state["sel_namespace"]
     quote_sel_key = f"selns_{ns}_quote"
     transcript_flag_key = f"selns_{ns}_include_transcript"
+    intro_flag_key = f"selns_{ns}_include_intro"
+
+    # --- Introduction toggle ---
+    include_intro_default = st.session_state.get(intro_flag_key, True)
+    st.checkbox(
+        "Include introduction",
+        key=intro_flag_key,
+        value=include_intro_default,
+        help="Adds an 'Introduction' heading and the intro sentence above the embed video.",
+    )
 
     # --- Transcript accordion toggle ---
     include_transcript_default = st.session_state.get(transcript_flag_key, True)
@@ -289,11 +337,14 @@ if quiz:
                     quotes_list = [quiz.key_quotes[idx]]
 
         include_transcript_flag = bool(st.session_state.get(transcript_flag_key, False))
+        include_intro_flag = bool(st.session_state.get(intro_flag_key, True))
         raw_transcript = st.session_state.get("raw_transcript", "")
+
+        intro_text = getattr(quiz, "intro", "") if include_intro_flag else ""
 
         try:
             filtered_quiz = type(quiz)(
-                intro=getattr(quiz, "intro", ""),
+                intro=intro_text,
                 key_quotes=quotes_list,
                 mc_questions=mc_keep,
                 tf_questions=tf_keep,
@@ -310,6 +361,7 @@ if quiz:
                 filtered_quiz,
                 raw_transcript,
                 include_transcript_flag,
+                include_intro_flag,
             )
             st.session_state["final_html"] = html_str
         except Exception as e:

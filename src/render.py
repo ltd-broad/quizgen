@@ -7,13 +7,9 @@ def render_quiz_to_html(
     quiz: Quiz,
     transcript: str | None = None,
     include_transcript: bool = False,
+    include_intro: bool = True,
 ) -> str:
-    """
-    Render quiz to HTML.
-
-    We pass transcript separately (not as part of the Quiz schema)
-    so instructors can optionally include it in the final embed output.
-    """
+    """Render the quiz (and optional transcript/intro) to HTML using the Spartan template."""
     env = Environment(
         loader=FileSystemLoader("templates"),
         autoescape=select_autoescape(["html", "xml"]),
@@ -21,6 +17,7 @@ def render_quiz_to_html(
     tpl = env.get_template("quiz_spartan.html.j2")
     return tpl.render(
         quiz=quiz,
-        transcript=transcript or "",
-        include_transcript=bool(include_transcript),
+        transcript=transcript,
+        include_transcript=include_transcript,
+        include_intro=include_intro,
     )

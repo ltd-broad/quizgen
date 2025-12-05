@@ -1,27 +1,32 @@
 <section class="quiz">
-  <p>{{ quiz.intro | e }}</p>
+  {# -------- Introduction (optional) -------- #}
+  {% if include_intro and quiz.intro %}
+    <h2 style="margin-top:0; margin-bottom:0.75rem;">Introduction</h2>
+    <p>{{ quiz.intro | e }}</p>
+  {% endif %}
+
   <p>[embed video]</p>
 
   {# Optional transcript accordion, displayed under the embed video line #}
   {% if include_transcript and transcript %}
-  <details class="transcript" style="margin-top:1rem; margin-bottom:1.25rem;">
-    <summary style="cursor:pointer; font-weight:400; margin-bottom:0.5rem;">
-      Transcript
-    </summary>
-    <div
-      style="
-        max-height:12rem;
-        overflow-y:auto;
-        padding:0.75rem;
-        border:1px solid #dddddd;
-        border-radius:4px;
-        background-color:#fafafa;
-        white-space:pre-wrap;
-      "
-    >
-      {{ transcript | e }}
-    </div>
-  </details>
+    <details class="transcript" style="margin-top:1rem; margin-bottom:1.25rem;">
+      <summary style="cursor:pointer; font-weight:400; margin-bottom:0.5rem;">
+        Transcript
+      </summary>
+      <div
+        style="
+          max-height:12rem;
+          overflow-y:auto;
+          padding:0.75rem;
+          border:1px solid #dddddd;
+          border-radius:4px;
+          background-color:#fafafa;
+          white-space:pre-wrap;
+        "
+      >
+        {{ transcript | e }}
+      </div>
+    </details>
   {% endif %}
 
   {% if quiz.key_quotes %}
@@ -36,10 +41,8 @@
   <h2 style="margin-top:1.5rem; margin-bottom:0.75rem;">Knowledge Check</h2>
   <p>Knowledge Checks are not recorded. Refresh the page to try again.</p>
 
-  {# shared counter so Q-numbers continue across MC + T/F #}
   {% set ns = namespace(qnum=1) %}
 
-  {# -------- Multiple-choice -------- #}
   {% for q in quiz.mc_questions %}
   <fieldset style="margin-bottom:1.5rem;">
     <legend style="margin-bottom:0.25rem; font-weight:400; font-family:inherit;">
@@ -76,7 +79,6 @@
   {% set ns.qnum = ns.qnum + 1 %}
   {% endfor %}
 
-  {# -------- True / False -------- #}
   {% for t in quiz.tf_questions %}
   <fieldset style="margin-bottom:1.5rem;">
     <legend style="margin-bottom:0.25rem; font-weight:400; font-family:inherit;">
