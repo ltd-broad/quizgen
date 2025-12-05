@@ -69,34 +69,23 @@ api_key_input = st.text_input(
     help="Leave blank to use Streamlit Secrets or the OPENAI_API_KEY environment variable.",
 )
 
-# ---------- Model selector ----------
-MODEL_OPTIONS = {
-    "o3-mini": {
-        "label": "o3-mini",
-        "help": (
-            "Reasoning-focused model. Often stronger at structured reasoning and "
-            "following complex constraints. The API does not support temperature "
-            "for o3 models."
-        ),
-    },
-    "gpt-4o-mini": {
-        "label": "gpt-4o-mini",
-        "help": (
-            "General-purpose fast model. Often good for concise drafting and "
-            "may be cheaper depending on your account pricing."
-        ),
-    },
-}
+# ---------- Model dropdown ----------
+MODEL_OPTIONS = [
+    "gpt-4.1-mini",  # default
+    "o3-mini",
+]
 
-selected_model = st.selectbox(
+model_name = st.selectbox(
     "Model",
-    options=list(MODEL_OPTIONS.keys()),
+    options=MODEL_OPTIONS,
     index=0,
-    format_func=lambda k: MODEL_OPTIONS[k]["label"],
     help=(
-        "Choose which model to use for draft generation.\n\n"
-        "o3-mini: reasoning-oriented.\n"
-        "gpt-4o-mini: fast general-purpose.\n"
+        "Switch models for draft generation."
+        "\n\nCost notes (approximate, relative to gpt-4o-mini baseline):"
+        "\n- If you are set on o3-mini, the cost is about 7.3× higher than gpt-4o-mini for the same token use."
+        "\n- For the same workload, gpt-4.1-mini costs about 2.7× more than gpt-4o-mini."
+        "\n\nOpenAI pricing: https://platform.openai.com/docs/pricing"
+        "\n\nNote: o3 models do not support the temperature parameter."
     ),
 )
 
@@ -169,7 +158,7 @@ if trigger_generate:
                 n_mcq=n_mcq,
                 n_tf=n_tf,
                 api_key=api_key,
-                model_name=selected_model,
+                model_name=model_name,
             )
         except Exception as e:
             st.error(
