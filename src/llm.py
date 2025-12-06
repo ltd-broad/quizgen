@@ -12,7 +12,7 @@ from .prompts import SYSTEM_PROMPT, USER_PROMPT
 from .utils import repair_quiz_dict
 
 # Default model if UI does not override
-DEFAULT_MODEL_NAME = "o3-mini"
+DEFAULT_MODEL_NAME = "gpt-4.1-mini"
 
 
 def _build_messages(transcript: str, n_mcq: int, n_tf: int) -> list[dict]:

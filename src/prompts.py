@@ -24,22 +24,26 @@ Authoring rules:
        • Avoid filler such as “I think”, “you know”, “kind of”, or partial sentence fragments.
    - You may lightly clean up disfluencies (um, uh, repeated words) for readability,
      but do NOT change the underlying meaning.
-   - If the transcript is short or repetitive, still prefer 5 distinct, high-quality
-     quotes; do NOT pad with near-duplicate sentences.
+   - If the transcript is short or repetitive, still produce 5 distinct, high-quality
+     quotes; avoid near-duplicates.
 
 3) Multiple-Choice ("mc_questions")
    - Create exactly {n_mcq} conceptual questions.
    - Each MCQ has a stem and exactly 4 choices labeled A–D.
    - Exactly ONE choice has "correct": true; the other three are false.
-   - Question stems should be short and concise (roughly 1–2 sentences).
+   - **Question stems must be short and concise:**
+       • Aim for 10–25 words.
+       • Prefer 1 sentence; at most 2 short sentences.
+       • Test conceptual understanding rather than simple recall.
    - Provide explanatory "feedback" for the correct answer:
-       • Feedback should be a longer explanation than the question stem
-         (1–3 sentences of clarification).
+       • **Feedback must be longer than the question stem** and add reasoning.
+       • Aim for 25–60 words.
+       • 1–3 sentences of clarification.
        • Do NOT include the words "Correct" or "Incorrect" in the feedback text.
+       • Do NOT restate the full question verbatim.
    - Quality bar for stems:
-       • 12–30 words.
-       • Combine at least TWO related ideas from the transcript.
-       • Prefer conceptual understanding to simple recall or numeric trivia.
+       • Combine at least TWO related ideas from the transcript when possible,
+         but keep wording compact.
        • Do NOT copy a single sentence and ask for a missing token.
    - Quality bar for distractors:
        • Plausible but wrong, and conceptually distinct from each other.
@@ -50,9 +54,14 @@ Authoring rules:
 4) True/False ("tf_questions")
    - Create exactly {n_tf} conceptual items.
    - Each has a clear statement, a boolean "answer", and explanatory "feedback".
-   - Statements should require reasoning, not recall of a single token or raw numbers.
-   - Feedback should be 1–3 sentences that clarify *why* the statement is true or false.
-   - Do NOT include the words "Correct" or "Incorrect" in the feedback text.
+   - **Statements must be short and concise:**
+       • Aim for 8–20 words.
+       • One clear sentence.
+       • Should require reasoning, not recall of a single token or raw numbers.
+   - **Feedback must be longer than the statement:**
+       • Aim for 25–60 words.
+       • 1–3 sentences explaining why it is true or false.
+       • Do NOT include the words "Correct" or "Incorrect" in the feedback text.
 
 General formatting:
 - Use standard ASCII quotes in JSON strings.
@@ -64,6 +73,8 @@ Self-check BEFORE replying:
 - "key_quotes" is an array with EXACTLY 5 strings (each a short, representative quote).
 - Every MCQ "choices" array has exactly 4 objects, labels are "A","B","C","D".
 - Exactly one choice per MCQ has "correct": true (others false).
+- Each MCQ feedback is clearly longer than its question stem.
+- Each T/F feedback is clearly longer than its statement.
 - All strings are valid JSON strings (ASCII quotes) and no extra fields are present.
 If any check fails, fix your JSON and only then output it.
 """
@@ -101,9 +112,11 @@ Constraints (must all be satisfied):
 - "key_quotes" must be an array of EXACTLY 5 strings (each a short, representative quote).
 - Exactly 4 choices per MCQ, labeled A–D.
 - Exactly ONE choice per MCQ has "correct": true (others false).
-- Question wording should be short and concise.
-- Feedback must be a longer explanation (1–3 sentences) and must NOT
-  contain the words "Correct" or "Incorrect".
+- **MCQ question stems should be short and concise** (aim 10–25 words; 1 sentence preferred).
+- **T/F statements should be short and concise** (aim 8–20 words; 1 sentence).
+- **Feedback for each question must be a longer explanation** than the corresponding stem/statement:
+  1–3 sentences, typically 25–60 words, explaining the reasoning.
+- Feedback must NOT contain the words "Correct" or "Incorrect".
 - No “All of the above” or “None of the above”.
 - Return ONLY the JSON object (no extra text, no Markdown).
 """

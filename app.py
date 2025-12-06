@@ -81,11 +81,7 @@ model_name = st.selectbox(
     index=0,
     help=(
         "Switch models for draft generation."
-        "\n\nCost notes (approximate, relative to gpt-4o-mini baseline):"
-        "\n- If you are set on o3-mini, the cost is about 7.3× higher than gpt-4o-mini for the same token use."
-        "\n- For the same workload, gpt-4.1-mini costs about 2.7× more than gpt-4o-mini."
         "\n\nOpenAI pricing: https://platform.openai.com/docs/pricing"
-        "\n\nNote: o3 models do not support the temperature parameter."
     ),
 )
 
