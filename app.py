@@ -31,10 +31,24 @@ def resolve_api_key(ui_input: str | None) -> str | None:
 
 
 def read_uploaded_txt(file) -> str:
+    """Read an uploaded .txt file robustly across Streamlit reruns."""
     try:
-        return file.read().decode("utf-8")
+        file.seek(0)
     except Exception:
-        return file.read()
+        pass
+
+    try:
+        data = file.read()
+    except Exception:
+        return ""
+
+    if data is None:
+        return ""
+
+    if isinstance(data, bytes):
+        return data.decode("utf-8", errors="ignore").strip()
+
+    return str(data).strip()
 
 
 def reset_draft_state():
@@ -107,20 +121,29 @@ if trigger_generate:
     reset_draft_state()
 
     transcript_text: str | None = None
-    both_provided = uploaded is not None and pasted and pasted.strip()
+    has_upload = uploaded is not None
+    has_paste = bool(pasted and pasted.strip())
 
-    if uploaded is not None:
+    if has_upload:
         transcript_text = read_uploaded_txt(uploaded)
-        if both_provided:
+        if has_paste:
             st.info(
                 "You provided both an uploaded .txt file and pasted text. "
                 "Using the uploaded file. Clear it if you prefer the pasted text instead."
             )
-    elif pasted and pasted.strip():
+    elif has_paste:
         transcript_text = pasted.strip()
 
     if not transcript_text:
-        st.warning("Please upload a .txt file or paste transcript text (but not both).")
+        if has_upload and not has_paste:
+            st.warning(
+                "Your uploaded file appears empty or could not be read. "
+                "Try re-uploading it or paste the text instead."
+            )
+        else:
+            st.warning(
+                "Please upload a .txt file or paste transcript text (but not both)."
+            )
         st.stop()
 
     st.session_state["raw_transcript"] = transcript_text
