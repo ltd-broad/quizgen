@@ -436,7 +436,7 @@ final_html = st.session_state.get("final_html")
 if final_html:
     st.markdown("### Step 3 — Embed code (copy & paste)")
     st.info(
-        "Use the copy code button or copy button on the right side of the embed code box, then paste that "
+        "Use the copy code button or the copy button on the right side of the embed code box, then paste that "
         "HTML into D2L using Insert Stuff → Enter Embed Code."
     )
     st.code(final_html, language="html")
