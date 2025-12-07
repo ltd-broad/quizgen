@@ -1,4 +1,5 @@
 import os
+import json
 from uuid import uuid4
 
 import streamlit as st
@@ -7,21 +8,14 @@ from src.llm import get_quiz
 from src.render import render_quiz_to_html
 
 
-# ---------- Page config ----------
 st.set_page_config(page_title="QuizGen", layout="wide")
 st.title("QuizGen: Transcript ➜ Interactive Quiz")
 
 
-# ---------- Helpers ----------
 def resolve_api_key(ui_input: str | None) -> str | None:
-    """
-    Priority: UI input > Streamlit Secrets > env var.
-    Never crash if secrets.toml is missing.
-    """
     if ui_input and ui_input.strip():
         return ui_input.strip()
 
-    # Try Streamlit secrets
     try:
         val = st.secrets["OPENAI_API_KEY"]
         if val:
@@ -29,7 +23,6 @@ def resolve_api_key(ui_input: str | None) -> str | None:
     except Exception:
         pass
 
-    # Finally, env var
     val = os.getenv("OPENAI_API_KEY")
     if val:
         return val
@@ -45,7 +38,6 @@ def read_uploaded_txt(file) -> str:
 
 
 def reset_draft_state():
-    """Clear any previous draft quiz, selections, transcript, and final HTML."""
     for k in list(st.session_state.keys()):
         if k.startswith("selns_"):
             del st.session_state[k]
@@ -57,11 +49,9 @@ def reset_draft_state():
 
 
 def get_tf_text(q) -> str:
-    """Handle schema variations for TF question text."""
     return getattr(q, "text", getattr(q, "statement", getattr(q, "question", "")))
 
 
-# ---------- API key (optional) ----------
 api_key_input = st.text_input(
     "Optional: Override OpenAI API Key",
     type="password",
@@ -69,9 +59,9 @@ api_key_input = st.text_input(
     help="Leave blank to use Streamlit Secrets or the OPENAI_API_KEY environment variable.",
 )
 
-# ---------- Model dropdown ----------
+
 MODEL_OPTIONS = [
-    "gpt-4.1-mini",  # default
+    "gpt-4.1-mini",
     "o3-mini",
 ]
 
@@ -79,13 +69,10 @@ model_name = st.selectbox(
     "Model",
     options=MODEL_OPTIONS,
     index=0,
-    help=(
-        "Switch models for draft generation."
-        "\n\nOpenAI pricing: https://platform.openai.com/docs/pricing"
-    ),
+    help="Switch models for draft generation.",
 )
 
-# ---------- Question counts (dropdowns, no sliders) ----------
+
 col1, col2 = st.columns(2)
 with col1:
     n_mcq = st.selectbox(
@@ -102,7 +89,7 @@ with col2:
         help="How many true/false questions to generate in the draft.",
     )
 
-# ---------- Transcript input + Step 1 ----------
+
 st.markdown("### Step 1 — Provide transcript & generate draft")
 
 tab_upload, tab_paste = st.tabs(["Upload .txt", "Paste text"])
@@ -111,12 +98,11 @@ with tab_upload:
 with tab_paste:
     pasted = st.text_area("Or paste transcript text", height=220)
 
-# Single primary action: toggles between Generate/Regenerate
 has_draft = "quiz_draft" in st.session_state
 action_label = "Regenerate draft" if has_draft else "Generate draft"
 trigger_generate = st.button(action_label, type="primary")
 
-# ---------- Step 1: Generate draft (one API call) ----------
+
 if trigger_generate:
     reset_draft_state()
 
@@ -166,7 +152,7 @@ if trigger_generate:
     st.session_state["quiz_draft"] = quiz
     st.session_state["sel_namespace"] = str(uuid4())
 
-# ---------- Step 2: Review & select (no API calls) ----------
+
 quiz = st.session_state.get("quiz_draft")
 if quiz:
     st.markdown("### Step 2 — Review & select content")
@@ -181,7 +167,6 @@ if quiz:
     transcript_flag_key = f"selns_{ns}_include_transcript"
     intro_flag_key = f"selns_{ns}_include_intro"
 
-    # --- Introduction toggle ---
     include_intro_default = st.session_state.get(intro_flag_key, True)
     st.checkbox(
         "Include introduction",
@@ -190,7 +175,6 @@ if quiz:
         help="Adds an 'Introduction' heading and the intro sentence above the embed video.",
     )
 
-    # --- Transcript accordion toggle ---
     include_transcript_default = st.session_state.get(transcript_flag_key, True)
     st.checkbox(
         "Include transcript accordion with transcript text",
@@ -202,12 +186,9 @@ if quiz:
         ),
     )
 
-    # --- Key quote selection (at most one) ---
     if getattr(quiz, "key_quotes", []):
         st.subheader("Key quote")
-        st.markdown(
-            "Choose at most one quote to include in the final HTML (or **None**)."
-        )
+        st.markdown("Choose at most one quote to include in the final HTML (or None).")
 
         quotes = quiz.key_quotes
         options_idx = list(range(len(quotes) + 1))
@@ -232,10 +213,8 @@ if quiz:
         )
         st.session_state[quote_sel_key] = selected_idx
 
-    # ---------- Sequential question numbering ----------
     q_counter = 1
 
-    # --- Multiple-Choice ---
     if getattr(quiz, "mc_questions", []):
         st.subheader("Multiple-Choice")
         for i, q in enumerate(quiz.mc_questions):
@@ -260,7 +239,6 @@ if quiz:
                     if getattr(q, "feedback", None):
                         st.write(f"**Feedback:** {q.feedback}")
 
-    # --- True / False ---
     if getattr(quiz, "tf_questions", []):
         st.subheader("True / False")
         for i, q in enumerate(quiz.tf_questions):
@@ -286,12 +264,18 @@ if quiz:
 
     st.divider()
 
-    spacer_left, col_create, col_clear, spacer_right = st.columns([1, 0.6, 0.6, 1])
+    spacer_left, col_create, col_copy, col_clear, spacer_right = st.columns(
+        [1, 0.8, 0.8, 0.8, 1]
+    )
 
     with col_create:
         create_code_clicked = st.button(
             "Create Code", use_container_width=True, type="primary"
         )
+
+    with col_copy:
+        copy_placeholder = st.empty()
+
     with col_clear:
         clear_code_clicked = st.button("Clear Code", use_container_width=True)
 
@@ -354,7 +338,77 @@ if quiz:
             st.exception(e)
             st.stop()
 
-# ---------- Step 3: Embed code ----------
+    final_html_for_copy = st.session_state.get("final_html")
+    has_code = bool(final_html_for_copy)
+    payload = json.dumps(final_html_for_copy) if has_code else json.dumps("")
+    disabled_attr = "" if has_code else "disabled"
+
+    with copy_placeholder:
+        try:
+            st.components.v1.html(
+                f"""
+                <style>
+                  @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600&display=swap');
+                  html, body {{
+                    margin: 0;
+                    padding: 0;
+                    font-family: "Source Sans 3", "Source Sans Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                  }}
+                  .copy-btn {{
+                    width: 100%;
+                    min-height: 2.5rem;
+                    padding: 0.5rem 0.75rem;
+                    border-radius: 0.5rem;
+                    border: 1px solid transparent;
+                    background: #008001;
+                    color: #ffffff;
+                    font-size: 1rem;
+                    font-weight: 500;
+                    font-family: inherit;
+                    line-height: 1.2;
+                    -webkit-font-smoothing: antialiased;
+                    -moz-osx-font-smoothing: grayscale;
+                    text-rendering: optimizeLegibility;
+                    cursor: pointer;
+                    white-space: nowrap;
+                  }}
+                  .copy-btn:hover {{ filter: brightness(0.98); }}
+                  .copy-btn:active, .copy-btn:focus {{ outline: none; }}
+                  .copy-btn[disabled] {{
+                    background: #f3f4f6;
+                    color: #9ca3af;
+                    border: 1px solid #d0d0d0;
+                    cursor: not-allowed;
+                    filter: none;
+                  }}
+                </style>
+                <button id='copy-embed-code-top' class='copy-btn' {disabled_attr}>Copy Code</button>
+                <script>
+                  const text = {payload};
+                  const btn = document.getElementById('copy-embed-code-top');
+
+                  const resetLabel = () => {{ btn.textContent = 'Copy Code'; }};
+
+                  btn.addEventListener('click', async () => {{
+                    if (btn.hasAttribute('disabled')) return;
+                    try {{
+                      await navigator.clipboard.writeText(text);
+                      btn.textContent = 'Copied';
+                      setTimeout(resetLabel, 1200);
+                    }} catch (e) {{
+                      btn.textContent = 'Copy failed';
+                      setTimeout(resetLabel, 1200);
+                    }}
+                  }});
+                </script>
+                """,
+                height=70,
+                scrolling=False,
+            )
+        except Exception:
+            st.button("Copy Code", use_container_width=True, disabled=True)
+
+
 final_html = st.session_state.get("final_html")
 if final_html:
     st.markdown("### Step 3 — Embed code (copy & paste)")
