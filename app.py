@@ -67,10 +67,10 @@ def get_tf_text(q) -> str:
 
 
 api_key_input = st.text_input(
-    "Optional: Override OpenAI API Key",
+    "OpenAI API Key (Optional)",
     type="password",
     placeholder="sk-...",
-    help="Leave blank to use Streamlit Secrets or the OPENAI_API_KEY environment variable.",
+    help="Leave blank to use your pre-configured key (for example, via Streamlit Secrets or your environment variable).",
 )
 
 
@@ -83,7 +83,9 @@ model_name = st.selectbox(
     "Model",
     options=MODEL_OPTIONS,
     index=0,
-    help="Switch models for draft generation.",
+    help="**Cost notes (approximate):**\n\n"
+    "- **o3-mini** can be about **2.7× higher** cost than **gpt-4.1-mini** for similar token use.\n\n"
+    "Track usage in your OpenAI dashboard: https://platform.openai.com/settings/organization/usage",
 )
 
 
