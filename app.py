@@ -83,8 +83,9 @@ model_name = st.selectbox(
     "Model",
     options=MODEL_OPTIONS,
     index=0,
-    help="**Cost notes (approximate):**\n\n"
-    "- **o3-mini** can be about **2.7× higher** cost than **gpt-4.1-mini** for similar token use.\n\n"
+    help="**Cost notes (approximate):**\n"
+    "- **o3-mini** can be about **2.7× higher** cost than **gpt-4.1-mini** for similar token use.\n"
+    "- Ex: With an input of a 390-sentence transcript (about 7,800 words) and an output of an Introduction, a Quote, and about 20 knowledge-check questions, the cost is about \\$0.06 with o3-mini and about \\$0.02 with gpt-4.1-mini per run, based on current API pricing.\n"
     "Track usage in your OpenAI dashboard: https://platform.openai.com/settings/organization/usage",
 )
 
