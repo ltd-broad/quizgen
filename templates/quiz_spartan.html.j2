@@ -1,7 +1,7 @@
 <section class="quiz">
   {# -------- Introduction (optional) -------- #}
   {% if include_intro and quiz.intro %}
-    <h2 style="margin-top:0; margin-bottom:0.75rem;">Introduction</h2>
+    <h2>Introduction</h2>
     <p>{{ quiz.intro | e }}</p>
   {% endif %}
 
@@ -30,7 +30,7 @@
   {% endif %}
 
   {% if quiz.key_quotes %}
-    <h2 style="margin-bottom:0.25rem;">Quote</h2>
+    <h2>Quote</h2>
     {% for quote in quiz.key_quotes[:5] %}
       <blockquote style="margin:0 0 1.75rem 0; font-style:normal; font-weight:400;">
         {{ quote | e }}
@@ -38,7 +38,7 @@
     {% endfor %}
   {% endif %}
 
-  <h2 style="margin-top:1.5rem; margin-bottom:0.75rem;">Knowledge Check</h2>
+  <h2>Knowledge Check</h2>
   <p>Knowledge Checks are not recorded. Refresh the page to try again.</p>
 
   {% set ns = namespace(qnum=1) %}
