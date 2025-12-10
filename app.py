@@ -437,7 +437,12 @@ if quiz:
 final_html = st.session_state.get("final_html")
 if final_html:
     st.markdown("### Step 3 — Embed code (copy & paste)")
-    st.info(
-        'Use the copy code button, then paste that into a D2L "Document Template" using Insert Stuff → Enter Embed Code.'
+    st.markdown(
+        """
+        <div style="font-size:1.1rem; font-weight:700; background-color:#F5F5DC;  padding:0.75rem 1rem; border-radius:0.375rem;">
+          Use the copy code button, then paste that into a D2L "Document Template" using Insert Stuff → Enter Embed Code.
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
     st.code(final_html, language="html")
