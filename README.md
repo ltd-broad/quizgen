@@ -11,9 +11,10 @@ The instructor can review the generated questions, select which ones to include,
 - Choose number of MCQs and True/False questions  
 - Switch between OpenAI models (gpt-4.1-mini and o3-mini)  
 - LLM pipeline with automatic JSON repair and validation  
-- Instructor can select which questions to keep  
+- user can select which questions to keep  
 - Generates D2L-ready HTML via a Jinja template  
 - Streamlit web UI  
+- User enters their own OpenAI API key (required; no server-side shared key fallback)
 
 ---
 
@@ -27,10 +28,10 @@ Approx. **$0.40 per 1M input tokens** and **$1.60 per 1M output tokens**
 
 ### o3-mini (reasoning model)  
 Approx. **$1.10 per 1M input tokens** and **$4.40 per 1M output tokens**  
-(Always verify with OpenAI’s pricing page.)
+(Always verify with OpenAI’s pricing page
+https://platform.openai.com/settings/organization/usage)
 
 In practice, quiz runs usually cost only a few cents unless the transcript is very long.
-
 ---
 
 ## Tech Stack and Python Version
@@ -83,32 +84,13 @@ pip install -r requirements.txt
 
 ---
 
-### 3. Set the OpenAI API key
+### 3. Provide the OpenAI API key (required)
 
-You may provide your API key in one of these ways:
+Each user must paste their own OpenAI API key into the app UI.
 
-#### A. Enter directly in the UI  
-Use the “Override OpenAI API Key” field.
-
-#### B. Environment variable
-
-```bash
-export OPENAI_API_KEY="sk-..."
-```
-
-Windows PowerShell:
-
-```powershell
-$env:OPENAI_API_KEY="sk-..."
-```
-
-#### C. Streamlit secrets (local)
-
-Create `.streamlit/secrets.toml`:
-
-```toml
-OPENAI_API_KEY = "sk-..."
-```
+- The API key field is required before generating a draft.
+- The app does not fall back to `OPENAI_API_KEY` environment variables or Streamlit Secrets.
+- The key is kept only in Streamlit session state (server memory) for that browser session (it is not written to disk).
 
 ---
 
@@ -150,17 +132,7 @@ Python 3.11
 
 ---
 
-### 4. Add the API key in Streamlit Secrets
-
-In the Secrets editor:
-
-```toml
-OPENAI_API_KEY = "sk-..."
-```
-
----
-
-### 5. Deploy
+### 4. Deploy
 
 Streamlit builds your environment and gives you a public link.  
 Redeploy any time you push new changes.
@@ -190,15 +162,15 @@ quizgen/
 
 ## How the Flow Works
 
-1. Instructor provides transcript and selects counts / model  
-2. `app.py` calls `get_quiz()`  
+1. user enters API key, provides transcript (upload or paste), selects counts, then selects a model  
+2. `app.py` calls `get_quiz()` and passes the instructor-provided API key  
 3. `llm.py`  
    - Builds prompts  
    - Calls OpenAI  
    - Repairs JSON  
    - Validates using `Quiz` schema  
 4. Returns a valid `Quiz` object  
-5. Instructor selects which questions to keep  
+5. user selects which questions to keep  
 6. `render.py` generates D2L-ready HTML  
 7. App displays final HTML  
 
@@ -215,5 +187,5 @@ quizgen/
 ## Notes
 
 - Cost depends on transcript length, model choice, and question count  
-- Never store API keys in code  
-- Ensure Streamlit Cloud uses Python 3.11  
+- Never store API keys in code or commit them to your repo  
+- The deployed app is intended for per-instructor keys; it does not use Streamlit Secrets or environment-variable fallbacks
