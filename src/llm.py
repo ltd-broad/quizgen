@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from typing import Optional
 
 from pydantic import ValidationError
 from openai import BadRequestError, OpenAI
@@ -11,17 +10,11 @@ from .schemas import Quiz
 from .prompts import SYSTEM_PROMPT, USER_PROMPT
 from .utils import repair_quiz_dict
 
-# Default model if UI does not override
 DEFAULT_MODEL_NAME = "gpt-4.1-mini"
 
 
 def _build_messages(transcript: str, n_mcq: int, n_tf: int) -> list[dict]:
-    """Format the prompt into OpenAI chat-completion messages.
-
-    We keep using ChatPromptTemplate for convenience, then convert each
-    LangChain message into a simple {"role": ..., "content": ...} dict that
-    the OpenAI client expects.
-    """
+    """Format the prompt into OpenAI chat-completion messages."""
     prompt = ChatPromptTemplate.from_messages(
         [
             ("system", SYSTEM_PROMPT),
@@ -36,9 +29,8 @@ def _build_messages(transcript: str, n_mcq: int, n_tf: int) -> list[dict]:
 
     messages: list[dict] = []
     for m in lc_messages:
-        msg_type = getattr(m, "type", "user")  # e.g. "system", "human", "ai"
+        msg_type = getattr(m, "type", "user")
 
-        # Map LangChain's "human" -> OpenAI's "user"
         if msg_type == "human":
             role = "user"
         elif msg_type in ("system", "user", "assistant"):
@@ -48,7 +40,6 @@ def _build_messages(transcript: str, n_mcq: int, n_tf: int) -> list[dict]:
 
         content = m.content
 
-        # LangChain messages can sometimes hold content as a list of parts.
         if isinstance(content, list):
             text_parts = []
             for part in content:
@@ -68,18 +59,14 @@ def _one_generation_attempt(
     transcript: str,
     n_mcq: int,
     n_tf: int,
-    api_key: Optional[str],
+    api_key: str,
     model_name: str,
 ) -> Quiz:
-    """Perform ONE full attempt to obtain a valid Quiz.
+    """Perform one full attempt to obtain a valid Quiz."""
+    if not api_key or not api_key.strip():
+        raise ValueError("API key is required.")
 
-    For non-reasoning models (model names *not* starting with ``"o3-"``),
-    we send ``temperature=0.0`` to make the behaviour more deterministic.
-
-    For reasoning models like ``"o3-mini"``, the OpenAI API does **not**
-    support a ``temperature`` parameter at all.
-    """
-    client = OpenAI(api_key=api_key) if api_key else OpenAI()
+    client = OpenAI(api_key=api_key.strip())
 
     messages = _build_messages(transcript=transcript, n_mcq=n_mcq, n_tf=n_tf)
 
@@ -119,16 +106,12 @@ def get_quiz(
     transcript: str,
     n_mcq: int,
     n_tf: int,
-    api_key: Optional[str] = None,
+    api_key: str,
     *,
     model_name: str | None = None,
     max_attempts: int = 5,
 ) -> Quiz:
-    """Deterministic, robust generation with bounded retries.
-
-    - For non-o3 models we set ``temperature=0.0``.
-    - For o3 models we omit ``temperature`` entirely.
-    """
+    """Robust generation with bounded retries."""
     chosen_model = model_name or DEFAULT_MODEL_NAME
     last_err: Exception | None = None
 
