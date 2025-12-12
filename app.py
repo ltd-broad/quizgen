@@ -1,4 +1,3 @@
-import os
 import json
 from uuid import uuid4
 
@@ -12,22 +11,11 @@ st.set_page_config(page_title="QuizGen", layout="wide")
 st.title("QuizGen: Transcript ➜ Interactive Quiz")
 
 
-def resolve_api_key(ui_input: str | None) -> str | None:
-    if ui_input and ui_input.strip():
-        return ui_input.strip()
-
-    try:
-        val = st.secrets["OPENAI_API_KEY"]
-        if val:
-            return str(val)
-    except Exception:
-        pass
-
-    val = os.getenv("OPENAI_API_KEY")
-    if val:
-        return val
-
-    return None
+def require_ui_api_key() -> str:
+    """Require an instructor-provided API key (no secrets/env fallback)."""
+    val = st.session_state.get("openai_api_key", "")
+    key = val.strip() if isinstance(val, str) else ""
+    return key
 
 
 def read_uploaded_txt(file) -> str:
@@ -66,62 +54,70 @@ def get_tf_text(q) -> str:
     return getattr(q, "text", getattr(q, "statement", getattr(q, "question", "")))
 
 
-api_key_input = st.text_input(
-    "OpenAI API Key (Optional)",
-    type="password",
-    placeholder="sk-...",
-    help="Leave blank to use your pre-configured key (for example, via Streamlit Secrets or your environment variable).",
-)
-
-
 MODEL_OPTIONS = [
     "gpt-4.1-mini",
     "o3-mini",
 ]
 
-model_name = st.selectbox(
-    "Model",
-    options=MODEL_OPTIONS,
-    index=0,
-    help="**Cost notes (approximate):**\n"
-    "- **o3-mini** can be about **2.7× higher** cost than **gpt-4.1-mini** for similar token use.\n"
-    "- Ex: With an input of a 390-sentence transcript (about 7,800 words) and an output of an Introduction, a Quote, and about 20 knowledge-check questions, the cost is about \\$0.06 with o3-mini and about \\$0.02 with gpt-4.1-mini per run, based on current API pricing.\n"
-    "Track usage in your OpenAI dashboard: https://platform.openai.com/settings/organization/usage",
-)
-
-
-col1, col2 = st.columns(2)
-with col1:
-    n_mcq = st.selectbox(
-        "Number of MCQs",
-        options=list(range(1, 11)),
-        index=1,
-        help="How many multiple-choice questions to generate in the draft.",
-    )
-with col2:
-    n_tf = st.selectbox(
-        "Number of True/False",
-        options=list(range(1, 11)),
-        index=1,
-        help="How many true/false questions to generate in the draft.",
-    )
-
-
 st.markdown("### Step 1 — Provide transcript & generate draft")
 
-tab_upload, tab_paste = st.tabs(["Upload .txt", "Paste text"])
-with tab_upload:
-    uploaded = st.file_uploader("Choose a transcript (.txt)", type=["txt"])
-with tab_paste:
-    pasted = st.text_area("Or paste transcript text", height=220)
+# Step 1 is now a form so pasted text is captured on submit without requiring Cmd/Ctrl+Enter.
+try:
+    step1_form = st.form("step1_form", border=False)
+except TypeError:
+    step1_form = st.form("step1_form")
 
-has_draft = "quiz_draft" in st.session_state
-action_label = "Regenerate draft" if has_draft else "Generate draft"
-trigger_generate = st.button(action_label, type="primary")
+with step1_form:
+    st.text_input(
+        "OpenAI API Key (Required)",
+        key="openai_api_key",
+        type="password",
+        placeholder="sk-...",
+        help="Enter your OpenAI API key",
+    )
+    tab_upload, tab_paste = st.tabs(["Upload .txt", "Paste text"])
+    with tab_upload:
+        uploaded = st.file_uploader("Choose a transcript (.txt)", type=["txt"])
+    with tab_paste:
+        pasted = st.text_area("Or paste transcript text", height=220)
 
+    col1, col2 = st.columns(2)
+    with col1:
+        n_mcq = st.selectbox(
+            "Number of MCQs",
+            options=list(range(1, 11)),
+            index=1,
+            help="How many multiple-choice questions to generate in the draft.",
+        )
+    with col2:
+        n_tf = st.selectbox(
+            "Number of True/False",
+            options=list(range(1, 11)),
+            index=1,
+            help="How many true/false questions to generate in the draft.",
+        )
+
+    model_name = st.selectbox(
+        "Model",
+        options=MODEL_OPTIONS,
+        index=0,
+        help=(
+            "Cost notes:\n\n"
+            "- o3-mini can be about 2.7× higher cost than gpt-4.1-mini for similar token use.\n"
+            "- Example: With an input of a 390-sentence transcript (about 7,800 words) and an output of an Introduction, a Quote, and about 20 knowledge-check questions, the cost is about \\$0.06 with o3-mini and about \\$0.02 with gpt-4.1-mini per run, based on current API pricing.\n"
+            "- Track usage in your OpenAI dashboard: https://platform.openai.com/settings/organization/usage"
+        ),
+    )
+
+    trigger_generate = st.form_submit_button("Generate draft", type="primary")
 
 if trigger_generate:
     reset_draft_state()
+
+    api_key = require_ui_api_key()
+    if not api_key:
+        st.warning("Please enter your OpenAI API key above to continue.")
+        st.stop()
 
     transcript_text: str | None = None
     has_upload = uploaded is not None
@@ -151,14 +147,6 @@ if trigger_generate:
 
     st.session_state["raw_transcript"] = transcript_text
 
-    api_key = resolve_api_key(api_key_input)
-    if not api_key:
-        st.warning(
-            "No API key found. Enter one above, set it in Streamlit Secrets (deploy), "
-            "or define OPENAI_API_KEY in your shell."
-        )
-        st.stop()
-
     with st.spinner("Generating draft…"):
         try:
             quiz = get_quiz(
@@ -177,7 +165,6 @@ if trigger_generate:
 
     st.session_state["quiz_draft"] = quiz
     st.session_state["sel_namespace"] = str(uuid4())
-
 
 quiz = st.session_state.get("quiz_draft")
 if quiz:
@@ -433,7 +420,6 @@ if quiz:
             )
         except Exception:
             st.button("Copy Code", use_container_width=True, disabled=True)
-
 
 final_html = st.session_state.get("final_html")
 if final_html:
