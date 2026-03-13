@@ -1,4 +1,8 @@
+# app.py (modified)
 import json
+import random
+import re
+import html as html_lib
 from uuid import uuid4
 
 import streamlit as st
@@ -57,7 +61,9 @@ def get_tf_text(q) -> str:
 MODEL_OPTIONS = [
     "gpt-4.1-mini",
     "o3-mini",
+    "gpt5.2",  # added per request
 ]
+
 
 st.markdown("### Step 1 — Provide transcript & generate draft")
 
@@ -110,6 +116,112 @@ with step1_form:
     )
 
     trigger_generate = st.form_submit_button("Generate draft", type="primary")
+
+
+def _straighten_and_escape(s: str) -> str:
+    """
+    Convert curly quotes to straight quotes and HTML-escape content where appropriate.
+    """
+    if not s:
+        return s
+    # replace curly quotes with straight ones
+    s = s.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
+    # ensure HTML entities are safe where we want them escaped
+    return html_lib.escape(s)
+
+
+def normalize_quiz_html(html: str) -> str:
+    """
+    Post-process the HTML produced by render_quiz_to_html to match formatting rules:
+      - Remove literal "[embed video]" text, leaving an empty <p></p> placeholder.
+      - Ensure quote is bold+italic with straight quotes inside a blockquote.
+      - Ensure the full question text is bold (wrap <legend> contents in <strong>).
+      - Keep feedback inside <details> unchanged.
+      - Randomize order of <input> choice buttons inside each <fieldset> so the correct
+        button position varies.
+    This uses regex-based transformations tuned to the expected output structure.
+    """
+    if not html:
+        return html
+
+    out = html
+
+    # 1) Remove any literal "[embed video]" text (replace with empty paragraph)
+    out = out.replace("[embed video]", "")
+    # convert any leftover standalone occurrences into an empty paragraph
+    out = re.sub(r'(?i)<p>\s*\[embed video\]\s*</p>', "<p></p>", out)
+
+    # 2) Normalize blockquote content: ensure bold+italic with straight quotes
+    def _format_blockquote(match):
+        inner = match.group(1).strip()
+        inner = _straighten_and_escape(inner)
+        # remove existing surrounding quotes if present to avoid doubling
+        inner = inner.strip('"').strip()
+        return f"<blockquote style=\"margin: 0 0 1.75rem 0;\"><strong><em>\"{inner}\"</em></strong></blockquote>"
+
+    out = re.sub(r"<blockquote[^>]*>(.*?)</blockquote>", _format_blockquote, out, flags=re.DOTALL)
+
+    # 3) Ensure <legend> question text is fully bold. Keep existing HTML inside legend but wrap text if needed.
+    def _bold_legend(m):
+        legend_content = m.group(1).strip()
+        # remove leading/trailing whitespace and any existing <strong> wrappers to avoid double
+        legend_content = re.sub(r'^<strong>(.*)</strong>$', r'\1', legend_content.strip(), flags=re.DOTALL)
+        # ensure final content is bold
+        return f"<legend style=\"margin-bottom: 0.25rem; font-weight: 400; font-family: inherit;\"> <strong>{legend_content}</strong> </legend>"
+
+    out = re.sub(r"<legend[^>]*>(.*?)</legend>", _bold_legend, out, flags=re.DOTALL)
+
+    # 4) Randomize the order of <input ...> (choice buttons) inside each <fieldset>.
+    #    We must preserve which input has var ok = true; detect that and keep it attached to its <input> element.
+    def _shuffle_fieldset(match):
+        fieldset_content = match.group(0)
+        # find all input/button blocks (we capture from '<input' up to '/>' or '>' plus possible onclick closure)
+        inputs = re.findall(r'(<input\b[^>]*>)', fieldset_content, flags=re.DOTALL | re.IGNORECASE)
+        if not inputs or len(inputs) <= 1:
+            return fieldset_content
+
+        # For each input, detect whether it contains "var ok = true" (correct)
+        input_infos = []
+        for inp in inputs:
+            is_correct = bool(re.search(r'\bvar\s+ok\s*=\s*true\s*;', inp))
+            input_infos.append((inp, is_correct))
+
+        # shuffle but keep mapping of correctness to the specific input string — correctness is embedded,
+        # so we shuffle the input blocks themselves (they already include ok true/false)
+        random.shuffle(input_infos)
+
+        # rebuild fieldset content by replacing the inputs sequence with the shuffled sequence.
+        # We'll replace the first occurrence of the sequence of inputs inside the original fieldset.
+        # Build concatenated string of shuffled inputs
+        shuffled_concat = "\n".join(inp for inp, _ in input_infos)
+
+        # Replace the original inputs chunk with shuffled one.
+        # Find the region containing all inputs - locate positions of first and last input in original fieldset_content
+        first_input_match = re.search(r'<input\b', fieldset_content)
+        last_input_match = None
+        for m in re.finditer(r'<input\b', fieldset_content):
+            last_input_match = m
+        if not first_input_match or not last_input_match:
+            return fieldset_content
+
+        # Find end of last input tag by locating the '>' after last_input_match.start()
+        last_gt = fieldset_content.find('>', last_input_match.start())
+        if last_gt == -1:
+            return fieldset_content
+
+        # The slice that contains all input tags begins at first_input_match.start() and ends at last_gt+1
+        start_idx = first_input_match.start()
+        end_idx = last_gt + 1
+        new_fieldset = fieldset_content[:start_idx] + shuffled_concat + fieldset_content[end_idx:]
+        return new_fieldset
+
+    out = re.sub(r'(<fieldset[^>]*>.*?</fieldset>)', lambda m: _shuffle_fieldset(m), out, flags=re.DOTALL | re.IGNORECASE)
+
+    # 5) Ensure feedback <details> blocks are preserved as-is (we didn't touch them).
+    # (No-op here, but kept for clarity.)
+
+    return out
+
 
 if trigger_generate:
     reset_draft_state()
@@ -345,6 +457,8 @@ if quiz:
                 include_transcript_flag,
                 include_intro_flag,
             )
+            # Post-process the HTML to match the requested formatting rules
+            html_str = normalize_quiz_html(html_str)
             st.session_state["final_html"] = html_str
         except Exception as e:
             st.error("Failed to render HTML from the filtered quiz.")
