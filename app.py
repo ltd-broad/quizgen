@@ -547,3 +547,9 @@ if final_html:
         unsafe_allow_html=True,
     )
     st.code(final_html, language="html")
+    st.markdown(
+    "<p style='margin-top:30px; font-size:14px; color:#666;'>Refresh the page to try again.</p>",
+    unsafe_allow_html=True
+)
+
+
