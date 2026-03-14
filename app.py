@@ -1,4 +1,4 @@
-# app.py (modified)
+import copy
 import json
 import random
 import re
@@ -61,13 +61,12 @@ def get_tf_text(q) -> str:
 MODEL_OPTIONS = [
     "gpt-4.1-mini",
     "o3-mini",
-    "gpt5.2",  # added per request
+    "gpt-5.4",
 ]
 
 
 st.markdown("### Step 1 — Provide transcript & generate draft")
 
-# Step 1 is now a form so pasted text is captured on submit without requiring Cmd/Ctrl+Enter.
 try:
     step1_form = st.form("step1_form", border=False)
 except TypeError:
@@ -124,9 +123,7 @@ def _straighten_and_escape(s: str) -> str:
     """
     if not s:
         return s
-    # replace curly quotes with straight ones
     s = s.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
-    # ensure HTML entities are safe where we want them escaped
     return html_lib.escape(s)
 
 
@@ -137,90 +134,102 @@ def normalize_quiz_html(html: str) -> str:
       - Ensure quote is bold+italic with straight quotes inside a blockquote.
       - Ensure the full question text is bold (wrap <legend> contents in <strong>).
       - Keep feedback inside <details> unchanged.
-      - Randomize order of <input> choice buttons inside each <fieldset> so the correct
-        button position varies.
-    This uses regex-based transformations tuned to the expected output structure.
+      - Add a retry paragraph after the last </fieldset></section>.
     """
     if not html:
         return html
 
     out = html
 
-    # 1) Remove any literal "[embed video]" text (replace with empty paragraph)
+    # 1) Remove any literal "[embed video]" text
     out = out.replace("[embed video]", "")
-    # convert any leftover standalone occurrences into an empty paragraph
     out = re.sub(r'(?i)<p>\s*\[embed video\]\s*</p>', "<p></p>", out)
 
     # 2) Normalize blockquote content: ensure bold+italic with straight quotes
     def _format_blockquote(match):
         inner = match.group(1).strip()
         inner = _straighten_and_escape(inner)
-        # remove existing surrounding quotes if present to avoid doubling
         inner = inner.strip('"').strip()
-        return f"<blockquote style=\"margin: 0 0 1.75rem 0;\"><strong><em>\"{inner}\"</em></strong></blockquote>"
+        return (
+            '<blockquote style="margin: 0 0 1.75rem 0;">'
+            f'<strong><em>"{inner}"</em></strong>'
+            "</blockquote>"
+        )
 
-    out = re.sub(r"<blockquote[^>]*>(.*?)</blockquote>", _format_blockquote, out, flags=re.DOTALL)
+    out = re.sub(
+        r"<blockquote[^>]*>(.*?)</blockquote>",
+        _format_blockquote,
+        out,
+        flags=re.DOTALL,
+    )
 
-    # 3) Ensure <legend> question text is fully bold. Keep existing HTML inside legend but wrap text if needed.
+    # 3) Ensure legend/question text is fully bold
     def _bold_legend(m):
         legend_content = m.group(1).strip()
-        # remove leading/trailing whitespace and any existing <strong> wrappers to avoid double
-        legend_content = re.sub(r'^<strong>(.*)</strong>$', r'\1', legend_content.strip(), flags=re.DOTALL)
-        # ensure final content is bold
-        return f"<legend style=\"margin-bottom: 0.25rem; font-weight: 400; font-family: inherit;\"> <strong>{legend_content}</strong> </legend>"
+        legend_content = re.sub(
+            r"^<strong>(.*)</strong>$",
+            r"\1",
+            legend_content,
+            flags=re.DOTALL,
+        )
+        return (
+            '<legend style="margin-bottom: 0.25rem; font-weight: 400; font-family: inherit;">'
+            f"<strong>{legend_content}</strong>"
+            "</legend>"
+        )
 
     out = re.sub(r"<legend[^>]*>(.*?)</legend>", _bold_legend, out, flags=re.DOTALL)
 
-    # 4) Randomize the order of <input ...> (choice buttons) inside each <fieldset>.
-    #    We must preserve which input has var ok = true; detect that and keep it attached to its <input> element.
-    def _shuffle_fieldset(match):
-        fieldset_content = match.group(0)
-        # find all input/button blocks (we capture from '<input' up to '/>' or '>' plus possible onclick closure)
-        inputs = re.findall(r'(<input\b[^>]*>)', fieldset_content, flags=re.DOTALL | re.IGNORECASE)
-        if not inputs or len(inputs) <= 1:
-            return fieldset_content
+    # 4) Add retry note after the last </fieldset></section>
+    marker = "</fieldset></section>"
+    retry_html = "<p>You can refresh the page if you would like to try again.</p>"
 
-        # For each input, detect whether it contains "var ok = true" (correct)
-        input_infos = []
-        for inp in inputs:
-            is_correct = bool(re.search(r'\bvar\s+ok\s*=\s*true\s*;', inp))
-            input_infos.append((inp, is_correct))
-
-        # shuffle but keep mapping of correctness to the specific input string — correctness is embedded,
-        # so we shuffle the input blocks themselves (they already include ok true/false)
-        random.shuffle(input_infos)
-
-        # rebuild fieldset content by replacing the inputs sequence with the shuffled sequence.
-        # We'll replace the first occurrence of the sequence of inputs inside the original fieldset.
-        # Build concatenated string of shuffled inputs
-        shuffled_concat = "\n".join(inp for inp, _ in input_infos)
-
-        # Replace the original inputs chunk with shuffled one.
-        # Find the region containing all inputs - locate positions of first and last input in original fieldset_content
-        first_input_match = re.search(r'<input\b', fieldset_content)
-        last_input_match = None
-        for m in re.finditer(r'<input\b', fieldset_content):
-            last_input_match = m
-        if not first_input_match or not last_input_match:
-            return fieldset_content
-
-        # Find end of last input tag by locating the '>' after last_input_match.start()
-        last_gt = fieldset_content.find('>', last_input_match.start())
-        if last_gt == -1:
-            return fieldset_content
-
-        # The slice that contains all input tags begins at first_input_match.start() and ends at last_gt+1
-        start_idx = first_input_match.start()
-        end_idx = last_gt + 1
-        new_fieldset = fieldset_content[:start_idx] + shuffled_concat + fieldset_content[end_idx:]
-        return new_fieldset
-
-    out = re.sub(r'(<fieldset[^>]*>.*?</fieldset>)', lambda m: _shuffle_fieldset(m), out, flags=re.DOTALL | re.IGNORECASE)
-
-    # 5) Ensure feedback <details> blocks are preserved as-is (we didn't touch them).
-    # (No-op here, but kept for clarity.)
+    if marker in out and retry_html not in out:
+        last_idx = out.rfind(marker)
+        out = (
+            out[: last_idx + len(marker)]
+            + retry_html
+            + out[last_idx + len(marker) :]
+        )
+    elif retry_html not in out:
+        out += retry_html
 
     return out
+
+
+def relabel_choices_a_to_d(mc_questions):
+    """
+    Relabel multiple-choice options sequentially as A, B, C, D... after shuffling.
+    """
+    letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+    for q in mc_questions:
+        choices = getattr(q, "choices", [])
+        for idx, choice in enumerate(choices):
+            if idx < len(letters):
+                choice.label = letters[idx]
+
+    return mc_questions
+
+
+def shuffled_mc_questions(mc_questions):
+    """
+    Deep-copy MC questions, shuffle each question's choices, then relabel them A, B, C, D...
+    This preserves randomized answer order while keeping clean visible labels.
+    """
+    shuffled_questions = []
+
+    for q in mc_questions:
+        q_copy = copy.deepcopy(q)
+        choices = getattr(q_copy, "choices", [])
+
+        if choices:
+            random.shuffle(choices)
+            q_copy.choices = choices
+
+        shuffled_questions.append(q_copy)
+
+    return relabel_choices_a_to_d(shuffled_questions)
 
 
 if trigger_generate:
@@ -408,10 +417,13 @@ if quiz:
         st.session_state.pop("final_html", None)
 
     if create_code_clicked:
-        mc_keep = []
-        for i, _ in enumerate(getattr(quiz, "mc_questions", [])):
+        selected_mc = []
+        for i, q in enumerate(getattr(quiz, "mc_questions", [])):
             if st.session_state.get(f"selns_{ns}_mc_{i}", True):
-                mc_keep.append(quiz.mc_questions[i])
+                selected_mc.append(q)
+
+        # Randomize selected MC answers, then relabel as A, B, C, D...
+        mc_keep = shuffled_mc_questions(selected_mc)
 
         tf_keep = []
         for i, _ in enumerate(getattr(quiz, "tf_questions", [])):
@@ -457,7 +469,6 @@ if quiz:
                 include_transcript_flag,
                 include_intro_flag,
             )
-            # Post-process the HTML to match the requested formatting rules
             html_str = normalize_quiz_html(html_str)
             st.session_state["final_html"] = html_str
         except Exception as e:
@@ -540,16 +551,11 @@ if final_html:
     st.markdown("### Step 3 — Embed code (copy & paste)")
     st.markdown(
         """
-        <div style="font-size:1.1rem; font-weight:700; background-color:#F5F5DC;  padding:0.75rem 1rem; border-radius:0.375rem;">
+        <div style="font-size:1.1rem; font-weight:700; background-color:#F5F5DC; padding:0.75rem 1rem; border-radius:0.375rem;">
           Use the copy code button, then paste that into a D2L "Document Template" using Insert Stuff → Enter Embed Code.
         </div>
         """,
         unsafe_allow_html=True,
     )
     st.code(final_html, language="html")
-    st.markdown(
-    "<p style='margin-top:30px; font-size:14px; color:#666;'>Refresh the page to try again.</p>",
-    unsafe_allow_html=True
-)
-
 
