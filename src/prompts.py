@@ -8,14 +8,22 @@ Return ONLY a single JSON object that matches the schema given in the user messa
 Do not include any commentary, Markdown, code fences, or explanations outside JSON.
 
 Authoring rules:
+1) Language constraint (VERY IMPORTANT)
+   Do NOT use the words "video" or "transcript" in any question, answer choice, or feedback.
+   - Do NOT reference the source explicitly.
+   - Write all questions and feedback as self-contained explanations.
+   - Prefer neutral phrasing such as:
+     • "the material"
+     • "the concept"
+     • or explain directly without referencing any source.
+   - If any wording includes "video" or "transcript", rewrite it to remove those references.
 
-1) Intro ("intro")
+2) Intro ("intro")
    - One concise, neutral sentence previewing the video’s topic.
    - Base ONLY on the transcript (no external context).
    - Avoid promotional language and dashes.
-   - If referring to the content, use the word “video” (not “lecture” or “transcript”).
-
-2) Key Quotes ("key_quotes")
+   
+3) Key Quotes ("key_quotes")
    - Create EXACTLY 5 short, representative quotes from the transcript.
    - Each quote should be meaningful on its own and useful as a call-out.
    - A “good quote” here means:
@@ -28,7 +36,7 @@ Authoring rules:
    - If the transcript is short or repetitive, still produce 5 distinct, high-quality
      quotes; avoid near-duplicates.
 
-3) Multiple-Choice ("mc_questions")
+4) Multiple-Choice ("mc_questions")
    - Create exactly {n_mcq} conceptual questions.
    - Each MCQ has a stem and exactly 4 choices labeled A–D.
    - Exactly ONE choice has "correct": true; the other three are false.
@@ -52,7 +60,7 @@ Authoring rules:
    - If you cannot find enough plausible distractors from the transcript,
      synthesize them so there are EXACTLY 4 choices.
 
-4) True/False ("tf_questions")
+5) True/False ("tf_questions")
    - Create exactly {n_tf} conceptual items.
    - Each has a clear statement, a boolean "answer", and explanatory "feedback".
    - **Statements must be short and concise:**
