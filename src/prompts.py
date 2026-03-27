@@ -22,6 +22,7 @@ Authoring rules:
    - One concise, neutral sentence previewing the video’s topic.
    - Base ONLY on the transcript (no external context).
    - Avoid promotional language and dashes.
+   - Add important key terms to the intro
    
 3) Key Quotes ("key_quotes")
    - Create EXACTLY 5 short, representative quotes from the transcript.
