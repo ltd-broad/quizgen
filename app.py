@@ -59,9 +59,7 @@ def get_tf_text(q) -> str:
 
 
 MODEL_OPTIONS = [
-    "gpt-4.1-mini",
-    "o3-mini",
-    "gpt-5.4",
+    "o3-mini"
 ]
 
 
@@ -309,7 +307,7 @@ if quiz:
         help="Adds an 'Introduction' heading and the intro sentence above the embed video.",
     )
 
-    include_transcript_default = st.session_state.get(transcript_flag_key, True)
+    include_transcript_default = st.session_state.get(transcript_flag_key, False)
     st.checkbox(
         "Include transcript accordion with transcript text",
         key=transcript_flag_key,
