@@ -14,6 +14,7 @@ Authoring rules:
    - Base ONLY on the transcript (no external context).
    - Avoid promotional language and dashes.
    - If referring to the content, use the word “video” (not “lecture” or “transcript”).
+   - Add important key terms to the intro
 
 2) Key Quotes ("key_quotes")
    - Create EXACTLY 5 short, representative quotes from the transcript.
