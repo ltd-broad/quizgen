@@ -60,6 +60,8 @@ def get_tf_text(q) -> str:
 
 MODEL_OPTIONS = [
     "o3-mini"
+    "gpt-5.4"
+    "gpt-4.1"
 ]
 
 
