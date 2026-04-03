@@ -1,4 +1,8 @@
+import copy
 import json
+import random
+import re
+import html as html_lib
 from uuid import uuid4
 
 import streamlit as st
@@ -55,13 +59,14 @@ def get_tf_text(q) -> str:
 
 
 MODEL_OPTIONS = [
-    "gpt-4.1-mini",
-    "o3-mini",
+    "o3-mini"
+    "gpt-5.4"
+    "gpt-4.1"
 ]
+
 
 st.markdown("### Step 1 — Provide transcript & generate draft")
 
-# Step 1 is now a form so pasted text is captured on submit without requiring Cmd/Ctrl+Enter.
 try:
     step1_form = st.form("step1_form", border=False)
 except TypeError:
@@ -110,6 +115,122 @@ with step1_form:
     )
 
     trigger_generate = st.form_submit_button("Generate draft", type="primary")
+
+
+def _straighten_and_escape(s: str) -> str:
+    """
+    Convert curly quotes to straight quotes and HTML-escape content where appropriate.
+    """
+    if not s:
+        return s
+    s = s.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
+    return html_lib.escape(s)
+
+
+def normalize_quiz_html(html: str) -> str:
+    """
+    Post-process the HTML produced by render_quiz_to_html to match formatting rules:
+      - Remove literal "[embed video]" text, leaving an empty <p></p> placeholder.
+      - Ensure quote is bold+italic with straight quotes inside a blockquote.
+      - Ensure the full question text is bold (wrap <legend> contents in <strong>).
+      - Keep feedback inside <details> unchanged.
+      - Add a retry paragraph after the last </fieldset></section>.
+    """
+    if not html:
+        return html
+
+    out = html
+
+    # 1) Remove any literal "[embed video]" text
+    out = out.replace("[embed video]", "")
+    out = re.sub(r'(?i)<p>\s*\[embed video\]\s*</p>', "<p></p>", out)
+
+    # 2) Normalize blockquote content: ensure bold+italic with straight quotes
+    def _format_blockquote(match):
+        inner = match.group(1).strip()
+        inner = _straighten_and_escape(inner)
+        inner = inner.strip('"').strip()
+        return (
+            '<blockquote style="margin: 0 0 1.75rem 0;">'
+            f'<strong><em>"{inner}"</em></strong>'
+            "</blockquote>"
+        )
+
+    out = re.sub(
+        r"<blockquote[^>]*>(.*?)</blockquote>",
+        _format_blockquote,
+        out,
+        flags=re.DOTALL,
+    )
+
+    # 3) Ensure legend/question text is fully bold
+    def _bold_legend(m):
+        legend_content = m.group(1).strip()
+        legend_content = re.sub(
+            r"^<strong>(.*)</strong>$",
+            r"\1",
+            legend_content,
+            flags=re.DOTALL,
+        )
+        return (
+            '<legend style="margin-bottom: 0.25rem; font-weight: 400; font-family: inherit;">'
+            f"<strong>{legend_content}</strong>"
+            "</legend>"
+        )
+
+    out = re.sub(r"<legend[^>]*>(.*?)</legend>", _bold_legend, out, flags=re.DOTALL)
+
+    # 4) Add retry note after the last </fieldset></section>
+    marker = "</fieldset></section>"
+    retry_html = "<p>You can refresh the page if you would like to try again.</p>"
+
+    if marker in out and retry_html not in out:
+        last_idx = out.rfind(marker)
+        out = (
+            out[: last_idx + len(marker)]
+            + retry_html
+            + out[last_idx + len(marker) :]
+        )
+    elif retry_html not in out:
+        out += retry_html
+
+    return out
+
+
+def relabel_choices_a_to_d(mc_questions):
+    """
+    Relabel multiple-choice options sequentially as A, B, C, D... after shuffling.
+    """
+    letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+    for q in mc_questions:
+        choices = getattr(q, "choices", [])
+        for idx, choice in enumerate(choices):
+            if idx < len(letters):
+                choice.label = letters[idx]
+
+    return mc_questions
+
+
+def shuffled_mc_questions(mc_questions):
+    """
+    Deep-copy MC questions, shuffle each question's choices, then relabel them A, B, C, D...
+    This preserves randomized answer order while keeping clean visible labels.
+    """
+    shuffled_questions = []
+
+    for q in mc_questions:
+        q_copy = copy.deepcopy(q)
+        choices = getattr(q_copy, "choices", [])
+
+        if choices:
+            random.shuffle(choices)
+            q_copy.choices = choices
+
+        shuffled_questions.append(q_copy)
+
+    return relabel_choices_a_to_d(shuffled_questions)
+
 
 if trigger_generate:
     reset_draft_state()
@@ -188,7 +309,7 @@ if quiz:
         help="Adds an 'Introduction' heading and the intro sentence above the embed video.",
     )
 
-    include_transcript_default = st.session_state.get(transcript_flag_key, True)
+    include_transcript_default = st.session_state.get(transcript_flag_key, False)
     st.checkbox(
         "Include transcript accordion with transcript text",
         key=transcript_flag_key,
@@ -296,10 +417,13 @@ if quiz:
         st.session_state.pop("final_html", None)
 
     if create_code_clicked:
-        mc_keep = []
-        for i, _ in enumerate(getattr(quiz, "mc_questions", [])):
+        selected_mc = []
+        for i, q in enumerate(getattr(quiz, "mc_questions", [])):
             if st.session_state.get(f"selns_{ns}_mc_{i}", True):
-                mc_keep.append(quiz.mc_questions[i])
+                selected_mc.append(q)
+
+        # Randomize selected MC answers, then relabel as A, B, C, D...
+        mc_keep = shuffled_mc_questions(selected_mc)
 
         tf_keep = []
         for i, _ in enumerate(getattr(quiz, "tf_questions", [])):
@@ -345,6 +469,7 @@ if quiz:
                 include_transcript_flag,
                 include_intro_flag,
             )
+            html_str = normalize_quiz_html(html_str)
             st.session_state["final_html"] = html_str
         except Exception as e:
             st.error("Failed to render HTML from the filtered quiz.")
@@ -426,10 +551,11 @@ if final_html:
     st.markdown("### Step 3 — Embed code (copy & paste)")
     st.markdown(
         """
-        <div style="font-size:1.1rem; font-weight:700; background-color:#F5F5DC;  padding:0.75rem 1rem; border-radius:0.375rem;">
+        <div style="font-size:1.1rem; font-weight:700; background-color:#F5F5DC; padding:0.75rem 1rem; border-radius:0.375rem;">
           Use the copy code button, then paste that into a D2L "Document Template" using Insert Stuff → Enter Embed Code.
         </div>
         """,
         unsafe_allow_html=True,
     )
     st.code(final_html, language="html")
+
