@@ -1,11 +1,9 @@
 <section class="quiz">
   {# -------- Introduction (optional) -------- #}
   {% if include_intro and quiz.intro %}
-    <h2>Introduction</h2>
     <p>{{ quiz.intro | e }}</p>
   {% endif %}
 
-  <p>[embed video]</p>
 
   {# Optional transcript accordion, displayed under the embed video line #}
   {% if include_transcript and transcript %}
