@@ -72,6 +72,7 @@ General formatting:
 - Use standard ASCII quotes in JSON strings.
 - Return ONLY JSON that conforms to the schema in the user message.
 - No trailing commentary, no Markdown.
+- do not display "&amp;" just show the character "&" in the output
 
 Self-check BEFORE replying:
 - You have exactly {n_mcq} MCQs and exactly {n_tf} T/F items.
