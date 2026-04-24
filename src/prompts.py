@@ -10,11 +10,11 @@ Do not include any commentary, Markdown, code fences, or explanations outside JS
 Authoring rules:
 
 1) Intro ("intro")
-   - One to two concise, neutral sentence previewing the video’s topic.
+   - One to two concise, neutral sentence previewing the video topic.
    - Base ONLY on the transcript (no external context).
    - Avoid promotional language and dashes.
    - If referring to the content, use the word “video” or "lecture" (but not “transcript”).
-   - Add important key terms to the intro
+   - Add important key terms to the intro and make them bold text
 
 2) Key Quotes ("key_quotes")
    - Create EXACTLY 5 short, representative quotes from the transcript.
