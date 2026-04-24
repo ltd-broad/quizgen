@@ -28,6 +28,8 @@ Authoring rules:
      but do NOT change the underlying meaning.
    - If the transcript is short or repetitive, still produce 5 distinct, high-quality
      quotes; avoid near-duplicates.
+   - Do not display html code in the quote for punctuation, such as for an ampersand. Use the word "and" instead
+   - change contractions to avoid showing code for punctuation, such as "is not" instead of "is'nt" and "do not" instead of don't
 
 4) Multiple-Choice ("mc_questions")
    - Create exactly {n_mcq} conceptual questions.
