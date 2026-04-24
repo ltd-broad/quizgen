@@ -73,6 +73,7 @@ General formatting:
 - Return ONLY JSON that conforms to the schema in the user message.
 - No trailing commentary, no Markdown.
 - do not display "&amp;" just show the character "&" in the output
+- do not display the html code for punctuation in general
 
 Self-check BEFORE replying:
 - You have exactly {n_mcq} MCQs and exactly {n_tf} T/F items.
