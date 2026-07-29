@@ -145,14 +145,14 @@ def normalize_quiz_html(html: str) -> str:
     out = out.replace("[embed video]", "")
     out = re.sub(r'(?i)<p>\s*\[embed video\]\s*</p>', "<p></p>", out)
 
-    # 2) Normalize blockquote content: ensure bold+italic with straight quotes
+    # 2) Normalize blockquote content: ensure italic with straight quotes
     def _format_blockquote(match):
         inner = match.group(1).strip()
         inner = _straighten_and_escape(inner)
         inner = inner.strip('"').strip()
         return (
-            '<blockquote style="margin: 0 0 1.75rem 0;">'
-            f'<strong><em>"{inner}"</em></strong>'
+            '<blockquote style="margin: 0 0 1.75rem 0; padding-left: 40px;">'
+            f'<em>"{inner}"</em>'
             "</blockquote>"
         )
 
