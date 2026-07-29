@@ -151,7 +151,7 @@ def normalize_quiz_html(html: str) -> str:
         inner = _straighten_and_escape(inner)
         inner = inner.strip('"').strip()
         return (
-            '<blockquote style="margin: 0 0 1.75rem 0; padding-left: 40px;">'
+            '<blockquote style="margin: 50px 0px 1.75rem;; padding-left: 40px;">'
             f'<em>"{inner}"</em>'
             "</blockquote>"
         )
