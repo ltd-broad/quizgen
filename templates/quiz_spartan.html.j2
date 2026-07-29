@@ -1,4 +1,3 @@
-<section class="quiz">
   {# -------- Introduction (optional) -------- #}
   {% if include_intro and quiz.intro %}
     <p>{{ quiz.intro | e }}</p>
@@ -26,16 +25,20 @@
       </div>
     </details>
   {% endif %}
-
+  
+<p>&nbsp;</p>
   {% if quiz.key_quotes %}
-    <h2>Quote</h2>
     {% for quote in quiz.key_quotes[:5] %}
-      <blockquote style="margin:0 0 1.75rem 0; font-style:normal; font-weight:400;">
+      <blockquote style="margin:0 0 1.75rem 0; padding-left: 40px;">
         {{ quote | e }}
       </blockquote>
     {% endfor %}
   {% endif %}
+  <br>
+  <img src="/shared/ContentTemplates/msu-brand/137A63-colorbar.png" alt="" title="" data-d2l-editor-default-img-style="true" style="max-width: 100%;">
 
+  <p>&nbsp;</p>
+<section class="quiz">
   <h2>Knowledge Check</h2>
   <p>Knowledge Checks are not recorded.</p>
 
