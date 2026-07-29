@@ -182,7 +182,8 @@ def normalize_quiz_html(html: str) -> str:
 
     # 4) Add retry note after the last </fieldset></section>
     marker = "</fieldset></section>"
-    retry_html = "<p>You can refresh the page if you would like to try again.</p>"
+    retry_html = "<p><img src="/shared/ContentTemplates/msu-brand/4b7080-colorbar.png" alt="" title="" data-d2l-editor-default-img-style="true" style="max-width: 100%;"></p>
+<p><button type="button" class="btn btn-primary" onclick="location.reload()"><strong>Refresh</strong></button> the page if you would like to try again.</p>"
 
     if marker in out and retry_html not in out:
         last_idx = out.rfind(marker)
